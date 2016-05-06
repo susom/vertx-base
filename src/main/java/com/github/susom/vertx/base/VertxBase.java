@@ -136,9 +136,9 @@ public class VertxBase {
     // Useful, but also serves to dump any logging related errors before
     // we redirect sout and serr to the logging framework below
     if (System.getProperty("log4j.configuration") != null) {
-      log.info("Configuring log4j using: " + System.getProperty("log4j.configuration"));
+      log.info("Configured log4j using: " + System.getProperty("log4j.configuration"));
     } else {
-      log.info("Configuring log4j from the classpath");
+      log.info("Configured log4j from the classpath");
     }
   }
 
@@ -149,64 +149,36 @@ public class VertxBase {
    * in that case will be written to the console, so you want the
    * console in its original condition at that point).
    *
-   * <p>Log entries will be at the info level, and prefixed with either
-   * "System.out: " or "System.err: "</p>
+   * <p>Log entries for standard out will be at the INFO level, and prefixed with
+   * "System.out: ". Log entries for standard error will be at the ERROR level,
+   * and prefixed with "System.err: ".</p>
    */
   public static void redirectConsoleToLog() {
     // Redirect console into slf4j log
-    System.setOut(createLoggingProxy("System.out: ", System.out));
-    System.setErr(createLoggingProxy("System.err: ", System.err));
-  }
-
-  /**
-   * Replace System.out and System.err so anything written to them
-   * goes to SLF4J instead. You probably want to call {@link #initializeLogging()}
-   * before this just in case logging is misconfigured (the errors
-   * in that case will be written to the console, so you want the
-   * console in its original condition at that point).
-   *
-   * <p>Log entries will be warnings, with a stack trace so you can
-   * see who is sending output to the console.</p>
-   */
-  public static void redirectConsoleToLogNoisy() {
-    // Redirect console into slf4j log
-    System.setOut(createLoggingProxyNoisy(System.out));
-    System.setErr(createLoggingProxyNoisy(System.err));
-  }
-
-  /**
-   * Intercept output to a PrintStream and send it to the log instead. The log
-   * level will be WARN, along with a stack trace and message telling you not
-   * to send output to the console.
-   */
-  public static PrintStream createLoggingProxyNoisy(PrintStream realPrintStream) {
-    return new PrintStream(realPrintStream) {
+    System.setOut(new PrintStream(System.out) {
       public void print(final String string) {
-        log.warn(string, new Exception("Do not write to the console"));
+        log.info("System.out: {}", string);
       }
 
       public void println(final String string) {
-        log.warn(string, new Exception("Do not write to the console"));
+        log.info("System.out: {}", string);
       }
-    };
-  }
-
-  /**
-   * Intercept output to a PrintStream and send it to the log instead. The log
-   * level will be INFO, simply printing console output prefixed as provided.
-   */
-  public static PrintStream createLoggingProxy(String prefix, PrintStream realPrintStream) {
-    return new PrintStream(realPrintStream) {
+    });
+    System.setErr(new PrintStream(System.err) {
       public void print(final String string) {
-        log.info(prefix + string);
+        log.error("System.err: {}", string);
       }
 
       public void println(final String string) {
-        log.info(prefix + string);
+        log.error("System.err: {}", string);
       }
-    };
+    });
   }
 
+  /**
+   * Determine the current working directory, either based on the "vertx.cwd"
+   * or "user.dir" system property.
+   */
   public static String workDir() {
     String workDir = System.getProperty("vertx.cwd");
     if (workDir == null) {

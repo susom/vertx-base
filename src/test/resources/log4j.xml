@@ -8,7 +8,7 @@
     <param name="Target" value="System.out"/>
     <param name="Threshold" value="ALL"/>
     <layout class="org.apache.log4j.PatternLayout">
-      <param name="ConversionPattern" value="%d{ABSOLUTE} %-5p [%t] %c %m%n"/>
+      <param name="ConversionPattern" value="%d{ABSOLUTE} %-5p [%t] %X{userId} %X{windowId} %X{requestId} %X{deviceRpid} %l %m%n"/>
     </layout>
     <filter class="org.apache.log4j.varia.LevelRangeFilter">
         <param name="LevelMin" value="TRACE"/>
@@ -20,7 +20,7 @@
     <param name="Target" value="System.err"/>
     <param name="Threshold" value="WARN"/>
     <layout class="org.apache.log4j.PatternLayout">
-      <param name="ConversionPattern" value="%d{ABSOLUTE} %-5p [%t] %c %m%n"/>
+      <param name="ConversionPattern" value="%d{ABSOLUTE} %-5p [%t] %X{userId} %X{windowId} %X{requestId} %X{deviceRpid} %l %m%n"/>
     </layout>
   </appender>
   <category name="com.github.susom">
@@ -30,6 +30,9 @@
     <!--<priority value="TRACE"/>-->
   <!--</category>-->
   <category name="shaded">
+    <priority value="WARN"/>
+  </category>
+  <category name="org.hsqldb">
     <priority value="WARN"/>
   </category>
   <root>
