@@ -260,6 +260,7 @@ public class VertxBase {
 
     // Files and directories the app will access
     appPerms.add(new FilePermission(workDir + "/local.properties", "read"));
+    appPerms.add(new FilePermission(workDir + "/.vertx", "read,write,delete"));
     appPerms.add(new FilePermission(workDir + "/.vertx/-", "read,write,delete"));
     appPerms.add(new FilePermission(workDir + "/conf/-", "read"));
     appPerms.add(new FilePermission(workDir + "/logs/-", "read,write"));
