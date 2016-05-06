@@ -26,7 +26,14 @@
   <category name="com.github.susom">
     <priority value="DEBUG"/>
   </category>
+  <!--<category name="com.github.susom.vertx">-->
+    <!--<priority value="TRACE"/>-->
+  <!--</category>-->
+  <category name="shaded">
+    <priority value="WARN"/>
+  </category>
   <root>
+    <priority value="INFO"/>
     <appender-ref ref="CONSOLE.OUT"/>
     <appender-ref ref="CONSOLE.ERR"/>
   </root>

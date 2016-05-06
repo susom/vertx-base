@@ -14,7 +14,7 @@
  */
 package com.github.susom.vertx.base.test;
 
-import com.github.susom.vertx.base.VertxUtil;
+import com.github.susom.vertx.base.VertxBase;
 import io.vertx.core.Vertx;
 import io.vertx.ext.unit.Async;
 import io.vertx.ext.unit.TestContext;
@@ -41,9 +41,9 @@ public class ClientTest {
     vertx.createHttpServer().requestHandler(r -> r.response().end("Hello"))
         .listen(8101, server -> {
           MDC.put("foo", "bar");
-          vertx.createHttpClient().get(8101, "localhost", "/foo").handler(VertxUtil.mdc(response -> {
+          vertx.createHttpClient().get(8101, "localhost", "/foo").handler(VertxBase.mdc(response -> {
             context.assertEquals("bar", MDC.get("foo"));
-            response.bodyHandler(VertxUtil.mdc(body -> {
+            response.bodyHandler(VertxBase.mdc(body -> {
               context.assertEquals("bar", MDC.get("foo"));
               vertx.close(closed -> async.complete());
             }));
