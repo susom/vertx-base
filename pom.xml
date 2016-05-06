@@ -97,8 +97,12 @@
               </artifactSet>
               <relocations>
                 <relocation>
-                  <pattern>org</pattern>
-                  <shadedPattern>shaded.com.github.susom.vertx.base.shaded.org</shadedPattern>
+                  <pattern>org.springframework</pattern>
+                  <shadedPattern>shaded.com.github.susom.vertx.base.shaded.org.springframework</shadedPattern>
+                </relocation>
+                <relocation>
+                  <pattern>org.apache.commons.lang3</pattern>
+                  <shadedPattern>shaded.com.github.susom.vertx.base.shaded.org.apache.commons.lang3</shadedPattern>
                 </relocation>
                 <relocation>
                   <pattern>com.github.susom.database</pattern>
