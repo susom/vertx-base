@@ -19,6 +19,9 @@ import io.vertx.core.Handler;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 import java.security.SecureRandom;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import javax.annotation.Nonnull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,6 +38,7 @@ public class MetricsHandler implements Handler<RoutingContext> {
   private final boolean dumpRequest;
   private final String requestIdPrefix;
   private long requestId = 1;
+  private List<String> headersToLog = new ArrayList<>();
 
   public MetricsHandler(SecureRandom secureRandom) {
     this(secureRandom, false);
@@ -43,6 +47,21 @@ public class MetricsHandler implements Handler<RoutingContext> {
   public MetricsHandler(SecureRandom secureRandom, boolean dumpRequest) {
     this.requestIdPrefix = new TokenGenerator(secureRandom).create(5);
     this.dumpRequest = dumpRequest;
+  }
+
+  public MetricsHandler logHeaders(String... headers) {
+    headersToLog.addAll(Arrays.asList(headers));
+    return this;
+  }
+
+  public MetricsHandler logXForwardedFor() {
+    headersToLog.add("X-Forwarded-For");
+    return this;
+  }
+
+  public MetricsHandler logUserAgent() {
+    headersToLog.add("User-Agent");
+    return this;
   }
 
   /**
@@ -73,13 +92,22 @@ public class MetricsHandler implements Handler<RoutingContext> {
     MDC.put("requestId", requestIdPrefix + Long.toString(requestId++, Character.MAX_RADIX) + externalRequestId);
     Metric metric = metricFor(rc);
     String query = rc.request().query();
-    if (query != null && query.length() > 0) {
-      log.debug("Received " + rc.request().method() + " " + rc.request().path() + "?" + query);
-    } else {
-      log.debug("Received " + rc.request().method() + " " + rc.request().path());
+    if (log.isDebugEnabled()) {
+      StringBuilder message = new StringBuilder();
+      message.append("Received ").append(rc.request().method()).append(" ").append(rc.request().path());
+      if (query != null && query.length() > 0) {
+        message.append("?").append(query);
+      }
+      if (headersToLog != null) {
+        for (String header : headersToLog) {
+          String headerValue = rc.request().getHeader(header);
+          if (headerValue != null) {
+            message.append("\n    ").append(header).append(headerValue);
+          }
+        }
+      }
+      log.debug(message.toString());
     }
-    log.debug("X-Forwarded-For: " + rc.request().getHeader("X-Forwarded-For"));
-    log.debug("User-Agent: " + rc.request().getHeader("User-Agent"));
     rc.response().headersEndHandler(h -> metric.checkpoint("call"));
     rc.addBodyEndHandler(h -> {
       metric.done("send");
@@ -94,8 +122,9 @@ public class MetricsHandler implements Handler<RoutingContext> {
           String contentType = rc.request().headers().get("Content-Type");
           if (contentType != null && contentType.contains("application/json")) {
             JsonObject body = new JsonObject(rc.getBodyAsString());
-            if (body.containsKey("password"))
+            if (body.containsKey("password")) {
               body.put("password", "xxx");
+            }
             buf.append("\nBody: ").append(body.encodePrettily());
           }
         }
