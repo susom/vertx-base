@@ -29,7 +29,7 @@
   <!--<category name="com.github.susom.vertx">-->
     <!--<priority value="TRACE"/>-->
   <!--</category>-->
-  <category name="shaded">
+  <category name="com.github.susom.vertx.base.shaded">
     <priority value="WARN"/>
   </category>
   <category name="org.hsqldb">
