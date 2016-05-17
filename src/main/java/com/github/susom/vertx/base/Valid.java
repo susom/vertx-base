@@ -28,6 +28,7 @@ import javax.annotation.Nullable;
  */
 public class Valid {
   private static final Pattern ALPHANUMERIC_4K = Pattern.compile("[a-zA-Z0-9]{1,4000}");
+  private static final Pattern NUMBER_4K = Pattern.compile("[0-9]{1,4000}");
 
   // Maybe I could annotate this somehow like @DoNotModify (unsafe to do things like lowercase or normalize after validation)
   @Nullable
@@ -67,6 +68,26 @@ public class Valid {
   }
 
   @Nonnull
+  public static <T> T useDefault(@Nullable T value, @Nonnull T defaultValue) {
+    if (value == null) {
+      return defaultValue;
+    }
+
+    return value;
+  }
+
+  public static Long parseLong(String value, String validationMessage) {
+    if (value == null || value.length() == 0) {
+      return null;
+    }
+    try {
+      return Long.parseLong(value);
+    } catch (NumberFormatException e) {
+      throw new BadRequestException(validationMessage);
+    }
+  }
+
+  @Nonnull
   public static String nonNullNormalized(String value, String validationMessage) {
     if (value == null) {
       throw new BadRequestException(validationMessage);
@@ -86,6 +107,15 @@ public class Valid {
   @Nonnull
   public static String safeReq(StringLookup lookup, String key, String validationMessage) {
     return matchesReq(lookup.get(key), ALPHANUMERIC_4K, validationMessage);
+  }
+
+  @Nullable
+  public static Long nonnegativeLongOpt(String value, String validationMessage) {
+    return parseLong(matchesOpt(value, NUMBER_4K, validationMessage), validationMessage);
+  }
+
+  public static long nonnegativeLongReq(String value, long defaultValue, String validationMessage) {
+    return useDefault(nonnegativeLongOpt(value, validationMessage), defaultValue);
   }
 
   @Nullable
