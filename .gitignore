@@ -3,6 +3,7 @@ build
 out
 classes
 .idea
+*.iml
 local.properties
 .vagrant
 dependency-reduced-pom.xml
