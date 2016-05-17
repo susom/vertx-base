@@ -281,7 +281,7 @@ public class VertxBase {
           path = path.substring(0, path.length() - 1);
         }
         path = path.replaceAll("%20", " ");
-        if (jdkLocations.contains(path)) {
+        if (jdkLocations.contains(path) || path.startsWith(javaDir)) {
           log.trace("Returning all permissions for codesource: {}", path);
           return jdkPerms;
         } else if (appLocations.contains(path)) {
