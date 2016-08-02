@@ -51,18 +51,24 @@ public class WebAppJwtAuthHandler implements Handler<RoutingContext> {
   private static final Logger log = LoggerFactory.getLogger(WebAppJwtAuthHandler.class);
   private final JWTAuth jwt;
   private final boolean mandatory;
+  private final Handler<RoutingContext> redirecter;
 
-  private WebAppJwtAuthHandler(JWTAuth jwt, boolean mandatory) {
+  private WebAppJwtAuthHandler(JWTAuth jwt, boolean mandatory, Handler<RoutingContext> redirecter) {
     this.jwt = jwt;
     this.mandatory = mandatory;
+    this.redirecter = redirecter;
   }
 
   public static WebAppJwtAuthHandler optional(JWTAuth jwt) {
-    return new WebAppJwtAuthHandler(jwt, false);
+    return new WebAppJwtAuthHandler(jwt, false, null);
   }
 
   public static WebAppJwtAuthHandler mandatory(JWTAuth jwt) {
-    return new WebAppJwtAuthHandler(jwt, true);
+    return new WebAppJwtAuthHandler(jwt, true, null);
+  }
+
+  public static WebAppJwtAuthHandler mandatory(JWTAuth jwt, Handler<RoutingContext> redirectUri) {
+    return new WebAppJwtAuthHandler(jwt, true, redirectUri);
   }
 
   public void handle(RoutingContext rc) {
@@ -93,11 +99,19 @@ public class WebAppJwtAuthHandler implements Handler<RoutingContext> {
           String xsrfHeader = rc.request().getHeader("X-XSRF-TOKEN");
           if (xsrfHeader == null || xsrfHeader.length() == 0) {
             log.debug("Missing XSRF header");
-            rc.response().setStatusCode(403).end("Send X-XSRF-TOKEN header with value from XSRF-TOKEN cookie");
+            if (redirecter == null) {
+              rc.response().setStatusCode(403).end("Send X-XSRF-TOKEN header with value from XSRF-TOKEN cookie");
+            } else {
+              redirecter.handle(rc);
+            }
             return;
           } else if (!xsrf.getValue().equals(xsrfHeader)) {
             log.debug("XSRF header did not match");
-            rc.response().setStatusCode(403).end("The X-XSRF-TOKEN header value did not match the XSRF-TOKEN cookie");
+            if (redirecter == null) {
+              rc.response().setStatusCode(403).end("The X-XSRF-TOKEN header value did not match the XSRF-TOKEN cookie");
+            } else {
+              redirecter.handle(rc);
+            }
             return;
           }
         }
@@ -117,7 +131,11 @@ public class WebAppJwtAuthHandler implements Handler<RoutingContext> {
             rc.response().headers().add(SET_COOKIE, session.setValue("").setMaxAge(0).encode());
             if (mandatory) {
               log.debug("Access token could not be authenticated", r.cause());
-              rc.response().setStatusCode(401).end("Access token expired");
+              if (redirecter == null) {
+                rc.response().setStatusCode(401).end("Access token expired");
+              } else {
+                redirecter.handle(rc);
+              }
             } else {
               rc.next();
             }
@@ -126,7 +144,11 @@ public class WebAppJwtAuthHandler implements Handler<RoutingContext> {
       } else {
         metric.checkpoint("noAuth");
         if (mandatory) {
-          rc.response().setStatusCode(401).end("No access_token cookie");
+          if (redirecter == null) {
+            rc.response().setStatusCode(401).end("No access_token cookie");
+          } else {
+            redirecter.handle(rc);
+          }
         } else {
           rc.next();
         }
