@@ -183,7 +183,13 @@ public class StrictResourceHandler implements Handler<RoutingContext> {
       }
 
       if (path.length() == 0) {
-        rc.response().setStatusCode(302).putHeader("location", rc.request().absoluteURI() + "/").end();
+        String q = rc.request().query();
+        if (q == null) {
+          q = "";
+        } else {
+          q = "?" + q;
+        }
+        rc.response().setStatusCode(302).putHeader("location", (mountPoint == null ? "" : mountPoint) + "/" + q).end();
         return;
       }
 
