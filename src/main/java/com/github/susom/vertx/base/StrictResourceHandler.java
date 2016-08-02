@@ -21,6 +21,11 @@ import io.vertx.core.http.HttpServerRequest;
 import io.vertx.core.impl.VertxInternal;
 import io.vertx.ext.web.RoutingContext;
 import java.io.File;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nonnull;
@@ -85,7 +90,7 @@ public class StrictResourceHandler implements Handler<RoutingContext> {
       if (resources != null) {
         for (Resource resource : resources) {
           if (resource.isReadable()) {
-            if (resource instanceof ClassPathResource) {
+            if (ClassPathResource.class.isAssignableFrom(resource.getClass())) {
               String resourcePath = ((ClassPathResource) resource).getPath();
               if (resourcePath.endsWith("/")) {
                 continue;
@@ -195,6 +200,23 @@ public class StrictResourceHandler implements Handler<RoutingContext> {
       }
 
       log.debug("Sending file: " + file.getAbsolutePath());
+
+      // Allow naming convention to control caching behavior
+      if (path.contains(".nocache.")) {
+        ZonedDateTime now = ZonedDateTime.now(ZoneId.of("GMT"));
+        rc.response().headers()
+            .add("Date", DateTimeFormatter.RFC_1123_DATE_TIME.format(now))
+            .add("Expires", DateTimeFormatter.RFC_1123_DATE_TIME.format(now.minus(1, ChronoUnit.DAYS)))
+            .add("Pragma", "no-cache")
+            .add("Cache-control", "no-cache, no-store, must-revalidate");
+      } else if (path.contains(".cache.")) {
+        ZonedDateTime now = ZonedDateTime.now(ZoneId.of("GMT"));
+        rc.response().headers()
+            .add("Date", DateTimeFormatter.RFC_1123_DATE_TIME.format(now))
+            .add("Expires", DateTimeFormatter.RFC_1123_DATE_TIME.format(now.plus(1, ChronoUnit.YEARS)))
+            .add("Cache-control", "max-age=31536000");
+      }
+
       rc.response().sendFile(file.getAbsolutePath());
     }
   }
