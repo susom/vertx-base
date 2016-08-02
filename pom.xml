@@ -11,6 +11,12 @@
   <description>Useful extensions to Vert.x for web applications.</description>
   <url>https://github.com/susom/vertx-base</url>
 
+  <properties>
+    <vertx.version>3.3.2</vertx.version>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+  </properties>
+
   <dependencies>
     <dependency>
       <groupId>com.github.susom</groupId>
@@ -39,22 +45,22 @@
     <dependency>
       <groupId>io.vertx</groupId>
       <artifactId>vertx-core</artifactId>
-      <version>3.3.0</version>
+      <version>${vertx.version}</version>
     </dependency>
     <dependency>
       <groupId>io.vertx</groupId>
       <artifactId>vertx-codegen</artifactId>
-      <version>3.3.0</version>
+      <version>${vertx.version}</version>
     </dependency>
     <dependency>
       <groupId>io.vertx</groupId>
       <artifactId>vertx-web</artifactId>
-      <version>3.3.0</version>
+      <version>${vertx.version}</version>
     </dependency>
     <dependency>
       <groupId>io.vertx</groupId>
       <artifactId>vertx-auth-jwt</artifactId>
-      <version>3.3.0</version>
+      <version>${vertx.version}</version>
     </dependency>
 
     <dependency>
@@ -72,7 +78,7 @@
     <dependency>
       <groupId>io.vertx</groupId>
       <artifactId>vertx-unit</artifactId>
-      <version>3.2.1</version>
+      <version>${vertx.version}</version>
       <scope>test</scope>
     </dependency>
     <dependency>
@@ -111,11 +117,6 @@
     <url>https://github.com/susom/vertx-base</url>
     <tag>HEAD</tag>
   </scm>
-
-  <properties>
-    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-  </properties>
 
   <distributionManagement>
     <snapshotRepository>
