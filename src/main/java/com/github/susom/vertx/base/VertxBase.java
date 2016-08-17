@@ -14,31 +14,40 @@
  */
 package com.github.susom.vertx.base;
 
+import com.github.susom.database.Config;
+import com.github.susom.database.Metric;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
+import io.vertx.core.json.JsonObject;
+import io.vertx.ext.web.RoutingContext;
 import java.io.Closeable;
 import java.io.FilePermission;
 import java.io.PrintStream;
 import java.lang.reflect.ReflectPermission;
-import java.net.MalformedURLException;
 import java.net.NetPermission;
 import java.net.SocketPermission;
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.nio.file.Paths;
 import java.security.AllPermission;
-import java.security.CodeSource;
 import java.security.NoSuchAlgorithmException;
 import java.security.Permission;
 import java.security.PermissionCollection;
 import java.security.Permissions;
 import java.security.Policy;
+import java.security.ProtectionDomain;
 import java.security.SecureRandom;
 import java.security.SecurityPermission;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.PropertyPermission;
 import java.util.Set;
+import java.util.WeakHashMap;
+import java.util.function.Function;
 import javax.annotation.Nonnull;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -209,20 +218,14 @@ public class VertxBase {
    * permissions the application code will need. Java system classes will receive
    * all permissions, and everything else will default to no permissions.
    */
-  public static void startSecurityManager(Permission... appPermissions) throws MalformedURLException {
+  public static void startSecurityManager(Permission... appPermissions) throws Exception {
     String tempDir = System.getProperty("java.io.tmpdir");
     String workDir = workDir();
     String userDir = System.getProperty("user.home");
     String javaDir = System.getProperty("java.home");
 
-    log.debug("Directories for initializing the SecurityManager:\n  temp: " + tempDir + "\n  work: "
-        + workDir + "\n  java: " + javaDir + "\n  user: " + userDir);
-
-    Permissions appPerms = new Permissions();
-
-    for (Permission permission : appPermissions) {
-      appPerms.add(permission);
-    }
+//    log.debug("Directories for initializing the SecurityManager:\n  temp: " + tempDir + "\n  work: "
+//        + workDir + "\n  java: " + javaDir + "\n  user: " + userDir);
 
     // Walk the classpath to figure out all the relevant codebase locations for our policy
     String javaHome = javaDir;
@@ -233,113 +236,127 @@ public class VertxBase {
     Set<String> appLocations = new HashSet<>();
     String[] classpath = System.getProperty("java.class.path").split(":");
     for (String entry : classpath) {
+      entry = Paths.get(entry).toAbsolutePath().normalize().toString();
       if (entry.startsWith(javaHome)) {
         jdkLocations.add(entry);
       } else {
         appLocations.add(entry);
-
-        // Make sure we can read the classpath files (e.g. Maven jars)
-        appPerms.add(new FilePermission(entry, "read"));
       }
-      if (log.isTraceEnabled()) {
-        log.trace("Classpath entry: " + entry);
-      }
+//      if (log.isTraceEnabled()) {
+//        log.trace("Classpath entry: " + entry);
+//      }
+    }
+    for (URL url : ((URLClassLoader)Thread.currentThread().getContextClassLoader()).getURLs()) {
+      String entry = Paths.get(url.toURI()).toAbsolutePath().normalize().toString();
+      appLocations.add(entry);
+//      if (log.isTraceEnabled()) {
+//        log.trace("Policy class loader url: " + entry);
+//      }
     }
 
-    // Files and directories the app will access
-    appPerms.add(new FilePermission(workDir + "/local.properties", "read"));
-    appPerms.add(new FilePermission(workDir + "/.vertx", "read,write,delete"));
-    appPerms.add(new FilePermission(workDir + "/.vertx/-", "read,write,delete"));
-    appPerms.add(new FilePermission(workDir + "/conf/-", "read"));
-    appPerms.add(new FilePermission(workDir + "/logs/-", "read,write"));
-    appPerms.add(new FilePermission(tempDir, "read,write"));
-
-    // Accept connections on any dynamic port (this is different from listening on the port)
-    appPerms.add(new SocketPermission("localhost:1024-", "accept"));
-
-    // We register a shutdown hook to stop Vert.x and clean up the database pool
-    appPerms.add(new RuntimePermission("shutdownHooks"));
-    appPerms.add(new RuntimePermission("modifyThread"));
-
-    // Everything tries to read some system property
-    appPerms.add(new PropertyPermission("*", "read"));
-
-    // These seem like bugs in vertx/netty (should not fail if these permissions are not granted)
-    appPerms.add(new RuntimePermission("setIO"));
-    appPerms.add(new PropertyPermission("io.netty.noJdkZlibDecoder", "write"));
-    appPerms.add(new PropertyPermission("sun.nio.ch.bugLevel", "write"));
-
-    // Emailer does DNS lookup on localhost hostname
-    appPerms.add(new SocketPermission("*", "resolve"));
-
-    // Not sure about these
-    appPerms.add(new ReflectPermission("suppressAccessChecks"));
-    appPerms.add(new RuntimePermission("accessDeclaredMembers"));
-    appPerms.add(new RuntimePermission("getClassLoader"));
-    appPerms.add(new RuntimePermission("setContextClassLoader"));
-    appPerms.add(new RuntimePermission("loadLibrary.sunec"));
-    appPerms.add(new RuntimePermission("accessClassInPackage.sun.*"));
-    appPerms.add(new SecurityPermission("putProviderProperty.SunJCE"));
-    appPerms.add(new SecurityPermission("putProviderProperty.SunEC"));
-    appPerms.add(new NetPermission("getNetworkInformation"));
-    appPerms.add(new FilePermission("/proc/sys/net/core/somaxconn", "read"));
-
-    Permissions jdkPerms = new Permissions();
-    jdkPerms.add(new AllPermission());
-
-    Permissions noPerms = new Permissions();
-
     Policy.setPolicy(new Policy() {
+      private final WeakHashMap<String, PermissionCollection> cache = new WeakHashMap<>();
+
       @Override
-      public PermissionCollection getPermissions(CodeSource codesource) {
-        String path = codesource.getLocation().getPath();
+      public boolean implies(ProtectionDomain domain, Permission permission) {
+        String path = domain.getCodeSource().getLocation().getPath();
+        PermissionCollection pc;
+
+        synchronized (cache) {
+          pc = cache.get(path);
+        }
+
+        if (pc == null) {
+          pc = getPermissions(domain);
+
+          synchronized (cache) {
+            cache.put(path, pc);
+          }
+        }
+
+        return pc.implies(permission);
+      }
+
+      @Override
+      public PermissionCollection getPermissions(ProtectionDomain domain) {
+        String path = domain.getCodeSource().getLocation().getPath();
         if (path.endsWith("/")) {
           path = path.substring(0, path.length() - 1);
         }
         path = path.replaceAll("%20", " ");
         if (jdkLocations.contains(path) || path.startsWith(javaDir)) {
-          log.trace("Returning all permissions for codesource: {}", path);
+//          log.trace("Returning all permissions for codesource: {}", path);
+          Permissions jdkPerms = new Permissions();
+          jdkPerms.add(new AllPermission());
           return jdkPerms;
         } else if (appLocations.contains(path)) {
-          log.trace("Returning application permissions for codesource: {}", path);
+//          log.trace("Returning application permissions for codesource: {}", path);
+          Permissions appPerms = new Permissions();
+
+          for (Permission permission : appPermissions) {
+            if (permission != null) {
+              appPerms.add(permission);
+            }
+          }
+
+          for (String entry : appLocations) {
+            // Make sure we can read the classpath files (e.g. Maven jars) and directories
+            appPerms.add(new FilePermission(entry, "read"));
+            if (!entry.endsWith(".jar")) {
+              appPerms.add(new FilePermission(entry + "/-", "read"));
+            }
+          }
+
+          // Files and directories the app will access
+          appPerms.add(new FilePermission(workDir + "/local.properties", "read"));
+          appPerms.add(new FilePermission(workDir + "/.vertx", "read,write,delete"));
+          appPerms.add(new FilePermission(workDir + "/.vertx/-", "read,write,delete"));
+          appPerms.add(new FilePermission(workDir + "/conf/-", "read"));
+          appPerms.add(new FilePermission(workDir + "/logs/-", "read,write"));
+          appPerms.add(new FilePermission(tempDir, "read,write"));
+          // Work-around for the fact Vert.x always checks filesystem before loading classpath resources
+          appPerms.add(new FilePermission(workDir + "/static/-", "read"));
+
+          // Accept connections on any dynamic port (this is different from listening on the port)
+          appPerms.add(new SocketPermission("localhost:1024-", "accept"));
+
+          // We register a shutdown hook to stop Vert.x and clean up the database pool
+          appPerms.add(new RuntimePermission("shutdownHooks"));
+          appPerms.add(new RuntimePermission("modifyThread"));
+
+          // Everything tries to read some system property
+          appPerms.add(new PropertyPermission("*", "read"));
+
+          // These seem like bugs in vertx/netty (should not fail if these permissions are not granted)
+          appPerms.add(new RuntimePermission("setIO"));
+          appPerms.add(new PropertyPermission("io.netty.noJdkZlibDecoder", "write"));
+          appPerms.add(new PropertyPermission("sun.nio.ch.bugLevel", "write"));
+
+          // Emailer does DNS lookup on localhost hostname
+          appPerms.add(new SocketPermission("*", "resolve"));
+
+          // Not sure about these
+          appPerms.add(new ReflectPermission("suppressAccessChecks"));
+          appPerms.add(new RuntimePermission("accessDeclaredMembers"));
+          appPerms.add(new RuntimePermission("getClassLoader"));
+          appPerms.add(new RuntimePermission("getStackTrace"));
+          appPerms.add(new RuntimePermission("setContextClassLoader"));
+          appPerms.add(new RuntimePermission("loadLibrary.sunec"));
+          appPerms.add(new RuntimePermission("accessClassInPackage.sun.*"));
+          appPerms.add(new SecurityPermission("putProviderProperty.SunJCE"));
+          appPerms.add(new SecurityPermission("putProviderProperty.SunEC"));
+          appPerms.add(new NetPermission("getNetworkInformation"));
+          appPerms.add(new FilePermission("/proc/sys/net/core/somaxconn", "read"));
+          appPerms.add(new FilePermission("/etc/hosts", "read"));
+
           return appPerms;
         }
-        log.trace("Returning no permissions for codesource: {}", path);
-        return noPerms;
+//        log.trace("Returning no permissions for codesource: {}", path);
+        return new Permissions();
       }
     });
 
-    System.setSecurityManager(new SecurityManager() {
-      final Set<Permission> alreadyDenied = new HashSet<>();
-
-      public void checkPermission(Permission perm, Object context) {
-        try {
-          super.checkPermission(perm, context);
-        } catch (SecurityException e) {
-          synchronized (alreadyDenied) {
-            if (!alreadyDenied.contains(perm)) {
-              log.warn("Denying permission: " + perm + " context: " + context, e);
-              alreadyDenied.add(perm);
-            }
-          }
-          throw e;
-        }
-      }
-
-      public void checkPermission(Permission perm) {
-        try {
-          super.checkPermission(perm);
-        } catch (SecurityException e) {
-          synchronized (alreadyDenied) {
-            if (!alreadyDenied.contains(perm)) {
-              log.warn("Denying permission: " + perm, e);
-              alreadyDenied.add(perm);
-            }
-          }
-          throw e;
-        }
-      }
-    });
+    System.setSecurityManager(new SecurityManager());
   }
 
   /**
@@ -376,5 +393,85 @@ public class VertxBase {
         log.warn("Error shutting down Vert.x", e);
       }
     }));
+  }
+
+  public static Handler<AsyncResult<JsonObject>> sendJson(RoutingContext rc) {
+    return r -> {
+      if (r.succeeded() && r.result() != null) {
+        rc.response().putHeader("content-type", "application/json").end(r.result().encode() + '\n');
+      } else {
+        jsonApiFail(rc, r.cause());
+      }
+    };
+  }
+
+  public static void jsonApiFail(RoutingContext rc) {
+    jsonApiFail(rc, rc.failure());
+  }
+
+  public static void jsonApiFail(RoutingContext rc, Throwable t) {
+    if (isOrCausedBy(t, BadRequestException.class)) {
+      log.debug("Validation error", t);
+      rc.response().setStatusCode(400).end(new JsonObject().put("error", t.getMessage()).encode());
+    } else {
+      log.error("Unexpected error", t);
+      rc.response().setStatusCode(500).end();
+    }
+  }
+
+  public static boolean isOrCausedBy(Throwable top, Class<? extends Throwable> type) {
+    for (Throwable t : ExceptionUtils.getThrowables(top)) {
+      if (type.isAssignableFrom(t.getClass())) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  public static String absoluteRoot(Function<String, String> keyToValueConfig/*, RoutingContext rc*/) {
+    Config config = Config.from().custom(keyToValueConfig::apply).get();
+
+    String proto = config.getStringOrThrow("public.proto");
+    String host = config.getStringOrThrow("public.host");
+    String port = config.getStringOrThrow("public.port");
+
+    StringBuilder buf = new StringBuilder();
+    buf.append(proto).append("://").append(host);
+    switch (proto) {
+    case "http":
+      if (!port.equals("80")) {
+        buf.append(':').append(port);
+      }
+      break;
+    case "https":
+      if (!port.equals("443")) {
+        buf.append(':').append(port);
+      }
+      break;
+    default:
+      throw new RuntimeException("Configuration error: public.proto must be either http or https");
+    }
+    buf.append('/');
+    return buf.toString();
+  }
+
+  public static String absoluteContext(Function<String, String> keyToValueConfig, RoutingContext rc) {
+    String root = absoluteRoot(keyToValueConfig);
+    String context = rc.mountPoint();
+
+    if (context == null) {
+      return root;
+    }
+    return root + context.substring(1);
+  }
+
+  public static String absolutePath(Function<String, String> keyToValueConfig, RoutingContext rc) {
+    String root = absoluteRoot(keyToValueConfig);
+    String context = rc.normalisedPath();
+
+    if (context == null) {
+      return root;
+    }
+    return root + context.substring(1);
   }
 }
