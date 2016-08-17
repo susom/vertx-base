@@ -51,8 +51,6 @@ public class StrictResourceHandler implements Handler<RoutingContext> {
   private final VertxInternal vertx;
   private String rootIndex = "index.html";
 
-  // TODO browser caching (*.cache.*, *.nocache.*, regular)
-
   public StrictResourceHandler(Vertx vertx) {
     this.vertx = (VertxInternal) vertx;
   }
