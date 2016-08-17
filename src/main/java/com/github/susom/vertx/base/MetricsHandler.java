@@ -130,7 +130,6 @@ public class MetricsHandler implements Handler<RoutingContext> {
         }
         log.debug(buf.toString());
       }
-      MDC.clear();
     });
     rc.next();
   }
