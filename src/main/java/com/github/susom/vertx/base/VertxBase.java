@@ -119,8 +119,17 @@ public class VertxBase {
     // Make sure default seeding happens now to avoid calling setSeed() too early
     random.nextBoolean();
 
-    // Add a little more seed randomness every hour
-    vertx.setPeriodic(3600000L, (id) -> random.setSeed(random.generateSeed(4)));
+    // Add a little more seed randomness every five minutes
+    vertx.setPeriodic(300000L, id -> executeBlocking(vertx, f -> {
+      Metric metric = new Metric(log.isTraceEnabled());
+      random.setSeed(random.generateSeed(4));
+      log.trace("Re-seeded secure random " + metric.getMessage());
+      f.complete();
+    }, r -> {
+      if (r.failed()) {
+        log.warn("Problem re-seeding secure random", r.cause());
+      }
+    }));
 
     return random;
   }
