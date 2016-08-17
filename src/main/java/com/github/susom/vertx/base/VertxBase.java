@@ -154,6 +154,13 @@ public class VertxBase {
    * and prefixed with "System.err: ".</p>
    */
   public static void redirectConsoleToLog() {
+    if (Boolean.getBoolean("java.security.debug")) {
+      // Debugging the security manager and/or policy writes to the console and will
+      // cause infinite recursion if we try to redirect the console since logging may
+      // perform security checks
+      return;
+    }
+
     // Redirect console into slf4j log
     System.setOut(new PrintStream(System.out) {
       public void print(final String string) {
