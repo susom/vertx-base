@@ -44,7 +44,6 @@ import static com.github.susom.vertx.base.VertxBase.workDir;
  */
 public class BasePolicy extends Policy {
   private final WeakHashMap<String, PermissionCollection> cache = new WeakHashMap<>();
-  protected final boolean devMode;
   protected final String tempDir;
   protected final String workDir;
   protected final String userDir;
@@ -53,14 +52,7 @@ public class BasePolicy extends Policy {
   private final Set<String> jdkLocations = new HashSet<>();
   private final Set<String> appLocations = new HashSet<>();
 
-  /**
-   * @param devMode true if we are loading from the production build artifact
-   *                (the specially constructed fatjar); false if we are running
-   *                from an IDE with our classes on the main classpath
-   */
-  public BasePolicy(boolean devMode) throws Exception {
-    super();
-    this.devMode = devMode;
+  public BasePolicy() throws Exception {
     tempDir = System.getProperty("java.io.tmpdir");
     workDir = workDir();
     userDir = System.getProperty("user.home");
@@ -91,6 +83,11 @@ public class BasePolicy extends Policy {
         System.out.println("Policy class loader url: " + entry);
       }
     }
+  }
+
+  public String dirs() {
+    return "Directories for initializing the security policy:\n  temp: " + tempDir + "\n  work: "
+        + workDir + "\n  java: " + javaDir + "\n  user: " + userDir;
   }
 
   public void install() {

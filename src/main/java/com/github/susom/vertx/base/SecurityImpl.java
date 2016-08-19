@@ -32,6 +32,8 @@ import io.vertx.ext.auth.jwt.impl.JWT;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.CookieHandler;
 import io.vertx.ext.web.impl.CookieImpl;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.security.SecureRandom;
 import java.util.Set;
 import java.util.function.Function;
@@ -70,9 +72,8 @@ public class SecurityImpl implements Security {
   private String redirectUri;
   private String scope;
 
-  public SecurityImpl(Vertx vertx, SecureRandom secureRandom, JWTAuth jwt, Function<String, String> cfg) {
+  public SecurityImpl(Vertx vertx, SecureRandom secureRandom, Function<String, String> cfg) throws Exception {
     this.secureRandom = secureRandom;
-    this.jwt = jwt;
     config = Config.from().custom(cfg::apply).get();
     String authBaseUri = config.getString("auth.server.base.uri", "http://localhost:8080/auth/realms/demo/protocol/openid-connect");
     authUrl = config.getString("auth.server.login.uri", authBaseUri + "/auth");
@@ -83,6 +84,29 @@ public class SecurityImpl implements Security {
     baseUri = config.getString("auth.client.base.uri", "http://localhost:8000/secure-app");
     redirectUri = config.getString("auth.client.redirect.uri", baseUri + "/callback");
     scope = config.getString("auth.client.scope", "openid");
+
+    // TOOD provide alternatives to using JWT, and ask security coordinator to configure
+    // Avoid using sessions by cryptographically signing tokens with JWT
+    // To create the private key do something like this:
+    // keytool -genseckey -keystore keystore.jceks -storetype jceks -storepass secret \
+    //         -keyalg HMacSHA256 -keysize 2048 -alias HS256 -keypass secret
+    // For more info: https://vertx.io/docs/vertx-auth-jwt/java/
+    String keystoreType = config.getString("jwt.keystore.type", "jceks");
+    String keystorePath = config.getString("jwt.keystore.path", "local.jwt.jceks");
+    String keystorePassword = config.getString("jwt.keystore.password", "secret");
+    boolean devMode = config.getBooleanOrFalse("insecure.dev.mode");
+    if (devMode && !Files.exists(Paths.get(keystorePath))) {
+      log.info("Dev mode: creating a keystore for JWT");
+      sun.security.tools.keytool.Main.main(new String[] { "-genseckey", "-keystore", keystorePath,
+          "-storetype", keystoreType, "-storepass", keystorePassword, "-keyalg", "HMacSHA256", "-keysize", "2048",
+          "-alias", "HS256", "-keypass", keystorePassword });
+    }
+    jwt = JWTAuth.create(vertx, new JsonObject()
+        .put("keyStore", new JsonObject()
+            .put("type", keystoreType)
+            .put("path", keystorePath)
+            .put("password", keystorePassword)));
+
 
     if (httpClient == null) {
       httpClient = vertx.createHttpClient(

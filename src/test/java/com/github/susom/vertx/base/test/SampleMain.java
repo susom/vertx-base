@@ -67,11 +67,11 @@ public class SampleMain {
       // keytool -genseckey -keystore keystore.jceks -storetype jceks -storepass secret \
       //         -keyalg HMacSHA256 -keysize 2048 -alias HS256 -keypass secret
       // For more info: https://vertx.io/docs/vertx-auth-jwt/java/
-      Lazy<JWTAuth> jwt = Lazy.initializer(() -> JWTAuth.create(vertx, new JsonObject()
-          .put("keyStore", new JsonObject()
-              .put("type", "jceks")
-              .put("path", config.getString("jwt.keystore.path", "conf/keystore.jceks"))
-              .put("password", config.getString("jwt.keystore.secret", "secret")))));
+//      Lazy<JWTAuth> jwt = Lazy.initializer(() -> JWTAuth.create(vertx, new JsonObject()
+//          .put("keyStore", new JsonObject()
+//              .put("type", "jceks")
+//              .put("path", config.getString("jwt.keystore.path", "conf/keystore.jceks"))
+//              .put("password", config.getString("jwt.keystore.secret", "secret")))));
 
       // The meat of the application goes here
       Router root = Router.router(vertx);
@@ -86,7 +86,7 @@ public class SampleMain {
 
       // Start the server
       vertx.createHttpServer().requestHandler(root::accept).listen(8080, result ->
-          log.info("Started server on port " + 8080 + ": http://localhost:8080/hello")
+          log.info("Started server on port " + 8080 + ":\n    http://localhost:8080/hello")
       );
 
       // Make sure we cleanly shutdown Vert.x and the database pool

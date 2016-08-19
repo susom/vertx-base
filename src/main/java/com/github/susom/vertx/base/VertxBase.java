@@ -21,30 +21,18 @@ import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
+import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import java.io.Closeable;
-import java.io.FilePermission;
 import java.io.PrintStream;
-import java.lang.reflect.ReflectPermission;
-import java.net.NetPermission;
-import java.net.SocketPermission;
-import java.net.URL;
-import java.net.URLClassLoader;
+import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.security.AllPermission;
+import java.security.AccessControlException;
 import java.security.NoSuchAlgorithmException;
 import java.security.Permission;
-import java.security.PermissionCollection;
 import java.security.Permissions;
-import java.security.Policy;
-import java.security.ProtectionDomain;
 import java.security.SecureRandom;
-import java.security.SecurityPermission;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.PropertyPermission;
-import java.util.Set;
-import java.util.WeakHashMap;
 import java.util.function.Function;
 import javax.annotation.Nonnull;
 import org.apache.commons.lang3.exception.ExceptionUtils;
@@ -219,144 +207,77 @@ public class VertxBase {
    * all permissions, and everything else will default to no permissions.
    */
   public static void startSecurityManager(Permission... appPermissions) throws Exception {
-    String tempDir = System.getProperty("java.io.tmpdir");
-    String workDir = workDir();
-    String userDir = System.getProperty("user.home");
-    String javaDir = System.getProperty("java.home");
+    setSecurityPolicy(appPermissions);
+    enableSecurityManager();
+  }
 
-//    log.debug("Directories for initializing the SecurityManager:\n  temp: " + tempDir + "\n  work: "
-//        + workDir + "\n  java: " + javaDir + "\n  user: " + userDir);
-
-    // Walk the classpath to figure out all the relevant codebase locations for our policy
-    String javaHome = javaDir;
-    if (javaHome.endsWith("/jre")) {
-      javaHome = javaHome.substring(0, javaHome.length()-5);
-    }
-    Set<String> jdkLocations = new HashSet<>();
-    Set<String> appLocations = new HashSet<>();
-    String[] classpath = System.getProperty("java.class.path").split(":");
-    for (String entry : classpath) {
-      entry = Paths.get(entry).toAbsolutePath().normalize().toString();
-      if (entry.startsWith(javaHome)) {
-        jdkLocations.add(entry);
-      } else {
-        appLocations.add(entry);
-      }
-//      if (log.isTraceEnabled()) {
-//        log.trace("Classpath entry: " + entry);
-//      }
-    }
-    for (URL url : ((URLClassLoader)Thread.currentThread().getContextClassLoader()).getURLs()) {
-      String entry = Paths.get(url.toURI()).toAbsolutePath().normalize().toString();
-      appLocations.add(entry);
-//      if (log.isTraceEnabled()) {
-//        log.trace("Policy class loader url: " + entry);
-//      }
-    }
-
-    Policy.setPolicy(new Policy() {
-      private final WeakHashMap<String, PermissionCollection> cache = new WeakHashMap<>();
-
+  public static void setSecurityPolicy(Permission... appPermissions) throws Exception {
+    new BasePolicy() {
       @Override
-      public boolean implies(ProtectionDomain domain, Permission permission) {
-        String path = domain.getCodeSource().getLocation().getPath();
-        PermissionCollection pc;
-
-        synchronized (cache) {
-          pc = cache.get(path);
-        }
-
-        if (pc == null) {
-          pc = getPermissions(domain);
-
-          synchronized (cache) {
-            cache.put(path, pc);
+      protected void addAppPermissions(Permissions appPerms) {
+        for (Permission p : appPermissions) {
+          if (p != null) {
+            appPerms.add(p);
           }
         }
-
-        return pc.implies(permission);
       }
+    }.install();
+  }
 
-      @Override
-      public PermissionCollection getPermissions(ProtectionDomain domain) {
-        String path = domain.getCodeSource().getLocation().getPath();
-        if (path.endsWith("/")) {
-          path = path.substring(0, path.length() - 1);
-        }
-        path = path.replaceAll("%20", " ");
-        if (jdkLocations.contains(path) || path.startsWith(javaDir)) {
-//          log.trace("Returning all permissions for codesource: {}", path);
-          Permissions jdkPerms = new Permissions();
-          jdkPerms.add(new AllPermission());
-          return jdkPerms;
-        } else if (appLocations.contains(path)) {
-//          log.trace("Returning application permissions for codesource: {}", path);
-          Permissions appPerms = new Permissions();
-
-          for (Permission permission : appPermissions) {
-            if (permission != null) {
-              appPerms.add(permission);
-            }
-          }
-
-          for (String entry : appLocations) {
-            // Make sure we can read the classpath files (e.g. Maven jars) and directories
-            appPerms.add(new FilePermission(entry, "read"));
-            if (!entry.endsWith(".jar")) {
-              appPerms.add(new FilePermission(entry + "/-", "read"));
-            }
-          }
-
-          // Files and directories the app will access
-          appPerms.add(new FilePermission(workDir + "/local.properties", "read"));
-          appPerms.add(new FilePermission(workDir + "/.vertx", "read,write,delete"));
-          appPerms.add(new FilePermission(workDir + "/.vertx/-", "read,write,delete"));
-          appPerms.add(new FilePermission(workDir + "/conf/-", "read"));
-          appPerms.add(new FilePermission(workDir + "/logs/-", "read,write"));
-          appPerms.add(new FilePermission(tempDir, "read,write"));
-          // Work-around for the fact Vert.x always checks filesystem before loading classpath resources
-          appPerms.add(new FilePermission(workDir + "/static/-", "read"));
-
-          // Accept connections on any dynamic port (this is different from listening on the port)
-          appPerms.add(new SocketPermission("localhost:1024-", "accept"));
-
-          // We register a shutdown hook to stop Vert.x and clean up the database pool
-          appPerms.add(new RuntimePermission("shutdownHooks"));
-          appPerms.add(new RuntimePermission("modifyThread"));
-
-          // Everything tries to read some system property
-          appPerms.add(new PropertyPermission("*", "read"));
-
-          // These seem like bugs in vertx/netty (should not fail if these permissions are not granted)
-          appPerms.add(new RuntimePermission("setIO"));
-          appPerms.add(new PropertyPermission("io.netty.noJdkZlibDecoder", "write"));
-          appPerms.add(new PropertyPermission("sun.nio.ch.bugLevel", "write"));
-
-          // Emailer does DNS lookup on localhost hostname
-          appPerms.add(new SocketPermission("*", "resolve"));
-
-          // Not sure about these
-          appPerms.add(new ReflectPermission("suppressAccessChecks"));
-          appPerms.add(new RuntimePermission("accessDeclaredMembers"));
-          appPerms.add(new RuntimePermission("getClassLoader"));
-          appPerms.add(new RuntimePermission("getStackTrace"));
-          appPerms.add(new RuntimePermission("setContextClassLoader"));
-          appPerms.add(new RuntimePermission("loadLibrary.sunec"));
-          appPerms.add(new RuntimePermission("accessClassInPackage.sun.*"));
-          appPerms.add(new SecurityPermission("putProviderProperty.SunJCE"));
-          appPerms.add(new SecurityPermission("putProviderProperty.SunEC"));
-          appPerms.add(new NetPermission("getNetworkInformation"));
-          appPerms.add(new FilePermission("/proc/sys/net/core/somaxconn", "read"));
-          appPerms.add(new FilePermission("/etc/hosts", "read"));
-
-          return appPerms;
-        }
-//        log.trace("Returning no permissions for codesource: {}", path);
-        return new Permissions();
-      }
-    });
-
+  public static void enableSecurityManager() {
     System.setSecurityManager(new SecurityManager());
+    try {
+      // Make sure the SecurityManager is doing something useful
+      Files.exists(Paths.get(".."));
+      log.error("Looks like the security sandbox is not working!");
+    } catch (AccessControlException unused) {
+      // Good, it's working
+      log.info("Started the security manager");
+    }
+  }
+
+  public static Router rootRouter(Vertx vertx, String defaultContext) {
+    Router root = Router.router(vertx);
+    root.route().handler(rc -> {
+      // Make sure all requests start with a clean slate for logging
+      MDC.clear();
+      rc.next();
+    });
+    if (defaultContext != null) {
+      root.get("/").handler(rc -> {
+        rc.response().setStatusCode(302).putHeader("Location", defaultContext).end();
+      });
+    }
+    return root;
+  }
+
+  public static Router authenticatedRouter(Vertx vertx, SecureRandom random, Security security,
+                                           boolean logFullRequests) {
+    Router router = Router.router(vertx);
+
+    // TODO add active defense handler here in front of everything
+
+    // Optimistically pick up logged in user here so logging and metrics will
+    // be correctly attributed whenever possible.
+    router.route().handler(security.authenticateOptional());
+    router.route().handler(new MetricsHandler(random, logFullRequests));
+
+    // Authentication callback and logout have to be accessible without authenticating
+    router.get("/callback").handler(security.callbackHandler());
+    router.get("/logout").handler(security.logoutHandler());
+
+    // Special case redirect for primary page. This will load a small HTML+JS
+    // page and execute some JavaScript to preserve the query string and bookmark
+    // before doing a client-side redirect.
+    router.get("/").handler(security.authenticateOrRedirectJs());
+
+    // Lock down everything else to return 401 with WWW-Authenticate: Redirect <login>
+    router.route().handler(security.authenticateOrDeny());
+
+    // Information for the client about whether we are logged in, how to login, etc.
+    router.get("/login-status").handler(security.loginStatusHandler());
+
+    return router;
   }
 
   /**
