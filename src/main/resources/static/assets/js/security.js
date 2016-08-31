@@ -64,7 +64,7 @@ function initializeWindowId() {
     windowId = Math.floor(Math.random()*1e16).toString(36).slice(0, 8);
   }
   window.name = "windowId:" + windowId;
-  if (match[3]) {
+  if (match && match[3]) {
     window.location.href = window.location.href + match[3];
     return false;
   } else {
