@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>Fake Login</title>
+  <link href="assets/css/bootstrap-3.3.6.min.cache.css" rel="stylesheet">
+  <style>
+    #error {
+      color: red;
+    }
+    /* For the navbar to work */
+    body {
+      padding-top: 70px;
+    }
+  </style>
+</head>
+<body>
+
+<noscript>
+  <div style="width: 22em; position: absolute; left: 50%; margin-left: -11em; color: red; background-color: white; border: 1px solid red; padding: 4px; font-family: sans-serif">
+    Your web browser must have JavaScript enabled
+    in order for this application to display correctly.
+  </div>
+</noscript>
+
+<nav class="navbar navbar-default navbar-fixed-top">
+  <div class="container">
+    <div class="navbar-header">
+      <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
+        <span class="sr-only">Toggle navigation</span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+      <a class="navbar-brand" href="#">Completely Fake Authentication</a>
+    </div>
+    <div id="navbar" class="navbar-collapse collapse">
+      <ul class="nav navbar-nav">
+      </ul>
+      <ul class="nav navbar-nav navbar-right">
+      </ul>
+    </div>
+  </div>
+</nav>
+
+<div class="container">
+  <div class="jumbotron" id="loginContainer">
+    <!--<h3>Super Cool Login</h3>-->
+    <p>Who do you want to be today?</p>
+
+    <p id="error"></p>
+
+    <form action="javascript:void(0);" onsubmit="doLogin()">
+      <div class="form-group">
+        <label for="username">Authenticated user:</label>
+        <input type="text" class="form-control" name="username" id="username" placeholder="Your login" required autofocus>
+      </div>
+      <div class="form-group">
+        <label for="displayname">Authenticated user display name:</label>
+        <input type="text" class="form-control" name="displayname" id="displayname" placeholder="Your name">
+      </div>
+      <!-- TODO add support for impersonation and authority sets
+      <div class="form-group">
+        <label class="control-label" for="actusername">Acting as user:</label>
+        <input type="text" class="form-control" name="actusername" id="actusername" placeholder="Impersonating login">
+      </div>
+      <div class="form-group">
+        <label for="actdisplayname">Acting as user display name:</label>
+        <input type="text" class="form-control" name="actdisplayname" id="actdisplayname" placeholder="Impersonating name">
+      </div>
+      -->
+      <div class="form-group">
+        <label for="authority">Authority (e.g. "service:mine:developer") comma or newline separated:</label>
+        <textarea name="authority" id="authority" class="form-control" rows="10"></textarea>
+        <!--<input type="textarea"  class="form-control" name="authority" id="authority">-->
+      </div>
+      <button type="submit" id="login" class="btn btn-lg btn-primary btn-default">Login</button>
+    </form>
+  </div>
+</div>
+<script src="assets/js/jquery-2.2.0.min.cache.js"></script>
+<script src="assets/js/bootstrap-3.3.6.min.cache.js"></script>
+<script type="application/javascript">
+  var params = {};
+
+  function doLogin() {
+    var auth = {};
+    auth.username = $("#username").val();
+    auth.displayname = $("#displayname").val();
+    auth.actusername = $("#actusername").val();
+    auth.actdisplayname = $("#actdisplayname").val();
+    auth.authority = $("#authority").val();
+    auth.clientId = params["client_id"];
+    auth.scope = params["scope"];
+    auth.state = params["state"];
+    auth.redirectUri = params["redirect_uri"];
+
+    // Stick it all in local storage so we don't have to type it each time
+    localStorage.setItem("username", auth.username);
+    localStorage.setItem("displayname", auth.displayname);
+    localStorage.setItem("actusername", auth.actusername);
+    localStorage.setItem("actdisplayname", auth.actdisplayname);
+    localStorage.setItem("authority", auth.authority);
+
+    $.ajax({
+      url: "authenticate",
+      method: "POST",
+      data: JSON.stringify(auth),
+      dataType: "json"
+    }).done(function(json) {
+      if (json.action == "redirect") {
+        window.location.replace(json.url);
+      } else if (json.action == "login") {
+        $("#error").text(json.message);
+      } else {
+        alert("Unexpected response:\n\n" + JSON.stringify(json));
+      }
+    });
+  }
+
+  $(function() {
+    // Read the query parameters
+    window.location.search.substring(1).split('&').forEach(function(s) {
+      var p = s.split('=');
+      params[p[0]] = decodeURIComponent(p[1]);
+    });
+
+    // Restore previous values if there are any
+    $("#username").val(localStorage.getItem("username")).focus();
+    $("#displayname").val(localStorage.getItem("displayname"));
+    $("#actusername").val(localStorage.getItem("actusername"));
+    $("#actdisplayname").val(localStorage.getItem("actdisplayname"));
+    $("#authority").val(localStorage.getItem("authority"));
+  });
+</script>
+</body>
+</html>

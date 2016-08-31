@@ -16,26 +16,27 @@
 package com.github.susom.vertx.base;
 
 /**
- * Exception to represent when the client has sent an unacceptable
- * request to the server. It is expected the top level handler for this
- * exception will return an HTTP 400 (Bad Request) status code to the client.
+ * Exception to represent when the client has not authenticated properly for this
+ * request to the server. It is expected the top level handler for this exception
+ * will return an HTTP 401 "Unauthorized" (a.k.a. Unauthenticated) status code to
+ * the client.
  *
  * @author garricko
  */
-public class BadRequestException extends RuntimeException {
+public class AuthenticationException extends RuntimeException {
   /**
-   * @param clientMessage this message is expected to be returned to the client
+   * @param message this message is expected to be returned to the client
    *                so do not include sensitive information
    */
-  public BadRequestException(String clientMessage) {
-    super(clientMessage);
+  public AuthenticationException(String message) {
+    super(message);
   }
 
   /**
    * @param message this message is expected to be returned to the client
    *                so do not include sensitive information
    */
-  public BadRequestException(String message, Throwable cause) {
+  public AuthenticationException(String message, Throwable cause) {
     super(message, cause);
   }
 }

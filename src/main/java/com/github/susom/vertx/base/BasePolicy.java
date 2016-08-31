@@ -162,7 +162,7 @@ public class BasePolicy extends Policy {
       appPerms.add(new FilePermission(workDir + "/static/-", "read"));
 
       // Accept connections on any dynamic port (this is different from listening on the port)
-      appPerms.add(new SocketPermission("localhost:1024-", "accept"));
+      appPerms.add(new SocketPermission("*:1024-", "accept"));
 
       // We register a shutdown hook to stop Vert.x and clean up the database pool
       appPerms.add(new RuntimePermission("shutdownHooks"));

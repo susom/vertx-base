@@ -25,16 +25,19 @@ import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.HttpClientOptions;
 import io.vertx.core.json.JsonObject;
-import io.vertx.ext.auth.User;
-import io.vertx.ext.auth.jwt.JWTAuth;
-import io.vertx.ext.auth.jwt.JWTOptions;
 import io.vertx.ext.auth.jwt.impl.JWT;
+import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.CookieHandler;
 import io.vertx.ext.web.impl.CookieImpl;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.security.SecureRandom;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.regex.Pattern;
@@ -42,7 +45,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
-import static com.github.susom.vertx.base.VertxBase.mdc;
+import static com.github.susom.vertx.base.VertxBase.*;
 import static io.vertx.core.http.HttpHeaders.COOKIE;
 import static io.vertx.core.http.HttpHeaders.SET_COOKIE;
 
@@ -54,13 +57,15 @@ import static io.vertx.core.http.HttpHeaders.SET_COOKIE;
 public class SecurityImpl implements Security {
   private static final Logger log = LoggerFactory.getLogger(SecurityImpl.class);
   private static final Pattern VALID_AUTH_CODE = Pattern.compile("[\\.a-zA-Z0-9_/-]*");
+  private static final String DEFAULT_AUTHORITY_SET = "self";
   private final CookieHandler cookieHandler;
   private final Handler<RoutingContext> authenticateOptional;
   private final Handler<RoutingContext> authenticateRequiredOrDeny;
   private final Handler<RoutingContext> authenticateRequiredOrRedirect302;
   private final Handler<RoutingContext> authenticateRequiredOrRedirectJs;
   private final SecureRandom secureRandom;
-  private final JWTAuth jwt;
+  private final Map<String, Session> sessions = new HashMap<>();
+//  private final JWTAuth jwt;
   private final Config config;
   private HttpClient httpClient;
   private String authUrl;
@@ -68,45 +73,50 @@ public class SecurityImpl implements Security {
   private String logoutUrl;
   private String clientId;
   private String clientSecret;
-  private String baseUri;
-  private String redirectUri;
   private String scope;
+  private final boolean fakeSecurity;
+  private String publicKey;
 
-  public SecurityImpl(Vertx vertx, SecureRandom secureRandom, Function<String, String> cfg) throws Exception {
+  public SecurityImpl(Vertx vertx, Router root, SecureRandom secureRandom, Function<String, String> cfg) throws Exception {
     this.secureRandom = secureRandom;
     config = Config.from().custom(cfg::apply).get();
-    String authBaseUri = config.getString("auth.server.base.uri", "http://localhost:8080/auth/realms/demo/protocol/openid-connect");
-    authUrl = config.getString("auth.server.login.uri", authBaseUri + "/auth");
-    tokenUrl = config.getString("auth.server.token.uri", authBaseUri + "/token");
-    logoutUrl = config.getString("auth.server.logout.uri", authBaseUri + "/logout");
-    clientId = config.getStringOrThrow("auth.client.id");
-    clientSecret = config.getString("auth.client.secret");
-    baseUri = config.getString("auth.client.base.uri", "http://localhost:8000/secure-app");
-    redirectUri = config.getString("auth.client.redirect.uri", baseUri + "/callback");
-    scope = config.getString("auth.client.scope", "openid");
+    String authBaseUri;
 
-    // TOOD provide alternatives to using JWT, and ask security coordinator to configure
-    // Avoid using sessions by cryptographically signing tokens with JWT
-    // To create the private key do something like this:
-    // keytool -genseckey -keystore keystore.jceks -storetype jceks -storepass secret \
-    //         -keyalg HMacSHA256 -keysize 2048 -alias HS256 -keypass secret
-    // For more info: https://vertx.io/docs/vertx-auth-jwt/java/
-    String keystoreType = config.getString("jwt.keystore.type", "jceks");
-    String keystorePath = config.getString("jwt.keystore.path", "local.jwt.jceks");
-    String keystorePassword = config.getString("jwt.keystore.password", "secret");
-    boolean devMode = config.getBooleanOrFalse("insecure.dev.mode");
-    if (devMode && !Files.exists(Paths.get(keystorePath))) {
-      log.info("Dev mode: creating a keystore for JWT");
-      sun.security.tools.keytool.Main.main(new String[] { "-genseckey", "-keystore", keystorePath,
-          "-storetype", keystoreType, "-storepass", keystorePassword, "-keyalg", "HMacSHA256", "-keysize", "2048",
-          "-alias", "HS256", "-keypass", keystorePassword });
+    scheduleSessionReaper(vertx);
+
+    fakeSecurity = config.getBooleanOrFalse("insecure.fake.security");
+//    SecurityCoordinator coordinator;
+    if (fakeSecurity) {
+      String absoluteRoot = absoluteRoot(config::getString);
+      authBaseUri = absoluteRoot + "fake-authentication";
+      authUrl = authBaseUri + "/auth";
+      tokenUrl = authBaseUri + "/token";
+      logoutUrl = authBaseUri + "/logout";
+      clientId = "fake";
+      clientSecret = new TokenGenerator(secureRandom).create(32);
+      scope = config.getString("auth.client.scope", "openid");
+
+      Router router = Router.router(vertx);
+      new FakeAuthentication(secureRandom, clientId, clientSecret, absoluteRoot).configureRouter(vertx, router);
+      root.mountSubRouter("/fake-authentication", router);
+
+//      coordinator = new SecurityCoordinatorStub();
+    } else {
+      authBaseUri = config.getString("auth.server.base.uri", "http://localhost:8080/auth/realms/demo/protocol/openid-connect");
+      authUrl = config.getString("auth.server.login.uri", authBaseUri + "/auth");
+      tokenUrl = config.getString("auth.server.token.uri", authBaseUri + "/token");
+      logoutUrl = config.getString("auth.server.logout.uri", authBaseUri + "/logout");
+      clientId = config.getStringOrThrow("auth.client.id");
+      clientSecret = config.getString("auth.client.secret");
+      scope = config.getString("auth.client.scope", "openid");
+      publicKey = config.getStringOrThrow("auth.server.public.key");
+
+//      coordinator = new SecurityCoordinatorReal(vertx, config.getStringOrThrow("security.coordinator"));
     }
-    jwt = JWTAuth.create(vertx, new JsonObject()
-        .put("keyStore", new JsonObject()
-            .put("type", keystoreType)
-            .put("path", keystorePath)
-            .put("password", keystorePassword)));
 
+    // TODO authenticate to security coordinator
+    // TODO send application information and configuration
+    // TODO download application configuration
 
     if (httpClient == null) {
       httpClient = vertx.createHttpClient(
@@ -142,7 +152,7 @@ public class SecurityImpl implements Security {
         rc.put("didCookieHandler", "yes");
       }
     };
-    Handler<RoutingContext> optional = WebAppJwtAuthHandler.optional(jwt);
+    Handler<RoutingContext> optional = WebAppSessionAuthHandler.optional(sessions);
     authenticateOptional = rc -> {
       if (rc.user() == null && rc.get("didAuthenticateOptional") == null) {
         rc.put("didAuthenticateOptional", "yes");
@@ -155,20 +165,20 @@ public class SecurityImpl implements Security {
         rc.next();
       }
     };
-    Handler<RoutingContext> mandatory = WebAppJwtAuthHandler.mandatory(jwt, rc -> {
+    Handler<RoutingContext> mandatory = WebAppSessionAuthHandler.mandatory(sessions, true, rc -> {
       QueryStringEncoder params = new QueryStringEncoder("");
 
       params.addParam("client_id", clientId);
       params.addParam("response_type", "code");
       params.addParam("scope", scope);
-      params.addParam("redirect_uri", redirectUri);
+      params.addParam("redirect_uri", redirectUri(rc));
       String state = new TokenGenerator(secureRandom).create(15);
       params.addParam("state", state);
 
       rc.response().headers().add(SET_COOKIE, io.vertx.ext.web.Cookie.cookie("state", state)
           .setHttpOnly(true)
           .setPath(rc.mountPoint() + "/")
-          .setSecure(redirectUri.startsWith("https")).encode());
+          .setSecure(redirectUri(rc).startsWith("https")).encode());
 
       rc.response().setStatusCode(401).putHeader("WWW-Authenticate", "Redirect " + authUrl + params).end();
     });
@@ -182,20 +192,20 @@ public class SecurityImpl implements Security {
         rc.next();
       }
     };
-    Handler<RoutingContext> mandatoryRedirect = WebAppJwtAuthHandler.mandatory(jwt, rc -> {
+    Handler<RoutingContext> mandatoryRedirect = WebAppSessionAuthHandler.mandatory(sessions, true, rc -> {
       QueryStringEncoder params = new QueryStringEncoder("");
 
       params.addParam("client_id", clientId);
       params.addParam("response_type", "code");
       params.addParam("scope", scope);
-      params.addParam("redirect_uri", redirectUri);
+      params.addParam("redirect_uri", redirectUri(rc));
       String state = new TokenGenerator(secureRandom).create(15);
       params.addParam("state", state);
 
       rc.response().headers().add(SET_COOKIE, io.vertx.ext.web.Cookie.cookie("state", state)
           .setHttpOnly(true)
           .setPath(rc.mountPoint() + "/")
-          .setSecure(redirectUri.startsWith("https")).encode());
+          .setSecure(redirectUri(rc).startsWith("https")).encode());
 
       rc.response().setStatusCode(302).putHeader("location", authUrl + params).end();
     });
@@ -209,20 +219,20 @@ public class SecurityImpl implements Security {
         rc.next();
       }
     };
-    Handler<RoutingContext> mandatoryRedirectJs = WebAppJwtAuthHandler.mandatory(jwt, rc -> {
+    Handler<RoutingContext> mandatoryRedirectJs = WebAppSessionAuthHandler.mandatory(sessions, false, rc -> {
       QueryStringEncoder params = new QueryStringEncoder("");
 
       params.addParam("client_id", clientId);
       params.addParam("response_type", "code");
       params.addParam("scope", scope);
-      params.addParam("redirect_uri", redirectUri);
+      params.addParam("redirect_uri", redirectUri(rc));
       String state = new TokenGenerator(secureRandom).create(15);
       params.addParam("state", state);
 
       rc.response().headers().add(SET_COOKIE, io.vertx.ext.web.Cookie.cookie("state", state)
           .setHttpOnly(true)
           .setPath(rc.mountPoint() + "/")
-          .setSecure(redirectUri.startsWith("https")).encode());
+          .setSecure(redirectUri(rc).startsWith("https")).encode());
 
       rc.response().putHeader("content-type", "text/html").end("<!DOCTYPE html><html><body>"
           + "<noscript>\n"
@@ -249,6 +259,25 @@ public class SecurityImpl implements Security {
         rc.next();
       }
     };
+  }
+
+  private void scheduleSessionReaper(Vertx vertx) {
+    vertx.setPeriodic(300000L, id -> {
+      Metric metric = new Metric(log.isTraceEnabled());
+      Instant now = Instant.now();
+      List<String> expired = new ArrayList<>(500);
+      sessions.forEach((k,v) -> {
+        if (v.expires.isBefore(now)) {
+          expired.add(k);
+        }
+      });
+      for (String token : expired) {
+        sessions.remove(token);
+      }
+      if (log.isTraceEnabled()) {
+        log.trace("Reaped " + expired.size() + " expired sessions " + metric.getMessage());
+      }
+    });
   }
 
 //  @Override
@@ -281,6 +310,27 @@ public class SecurityImpl implements Security {
   }
 
   @Override
+  public Handler<RoutingContext> requireAuthority(String authority) {
+    return rc -> {
+      AuthenticatedUser user = AuthenticatedUser.from(rc);
+      if (user == null) {
+        log.warn("No authenticated user");
+        rc.response().setStatusCode(401).end();
+      } else {
+        user.isAuthorised(authority, r -> {
+          if (r.succeeded() && r.result()) {
+            rc.next();
+          } else {
+            log.warn("RequiredAuthorityMissing=\"" + authority + "\" User="
+                + user.principal().encode());
+            rc.response().setStatusCode(403).end();
+          }
+        });
+      }
+    };
+  }
+
+  @Override
   public Handler<RoutingContext> callbackHandler() {
     return rc -> {
       // XSRF prevention: Verify the state value provided to login call
@@ -292,8 +342,7 @@ public class SecurityImpl implements Security {
           rc.response().setStatusCode(403).end("Missing state parameter");
           return;
         } else if (!state.getValue().equals(stateParam)) {
-//          log.debug("State from parameter does not match cookie (XSRF?)");
-          log.warn("State from parameter does not match cookie (XSRF?) " + stateParam + " vs. " + state.getValue()); // TODO remove
+          log.debug("State from parameter does not match cookie (XSRF?)");
           rc.response().setStatusCode(403).end("The state parameter does not match the cookie");
           return;
         }
@@ -310,7 +359,7 @@ public class SecurityImpl implements Security {
       enc.addParam("code", Valid.matchesReq(rc.request().getParam("code"), VALID_AUTH_CODE, "Invalid code"));
       enc.addParam("client_id", clientId);
       enc.addParam("client_secret", clientSecret);
-      enc.addParam("redirect_uri", redirectUri);
+      enc.addParam("redirect_uri", redirectUri(rc));
       enc.addParam("scope", scope);
 
       Metric metric = new Metric(log.isDebugEnabled());
@@ -322,31 +371,55 @@ public class SecurityImpl implements Security {
             if (response.statusCode() == 200) {
               JsonObject json = new JsonObject(body.toString());
 
-              String publicKey = config.getStringOrThrow("auth.server.public.key");
-              JWT decoder = new JWT(publicKey);
-              JsonObject id = decoder.decode(json.getString("id_token"));
-
-              // TODO need to verify issuer, audience, etc. per spec
               log.warn("Response from token end point: " + json.encodePrettily()); // TODO remove
-              JsonObject access = decoder.decode(json.getString("access_token"));
-              log.warn("id_token: " + id.encodePrettily() + "\naccess_token: " + access.encodePrettily()); // TODO remove
 
-              String sessionToken = jwt.generateToken(new JsonObject()
-                      .put("sub", id.getString("preferred_username"))
-                      .put("name", id.getString("name", id.getString("preferred_username"))),
-                  new JWTOptions().setExpiresInSeconds(60 * 60 * 24L));
+              String sessionToken = new TokenGenerator(secureRandom).create(64);
+              if (fakeSecurity) {
+                Session session = new Session();
+                session.username = json.getString("sub");
+                session.displayName = json.getString("name", json.getString("sub"));
+                session.expires = Instant.now().plus(12, ChronoUnit.HOURS);
+                AuthoritySet authoritySet = new AuthoritySet();
+                authoritySet.actingUsername = session.username;
+                authoritySet.actingDisplayName = session.displayName;
+                authoritySet.combinedDisplayName = session.displayName;
+                authoritySet.staticAuthority.addAll(json.getJsonArray("authority").getList());
+                session.authoritySets.put(DEFAULT_AUTHORITY_SET, authoritySet);
+                sessions.put(sessionToken, session);
+              } else {
+                JWT decoder = new JWT(publicKey);
+                JsonObject id = decoder.decode(json.getString("id_token"));
+                // TODO need to verify issuer, audience, etc. per spec
 
-              io.vertx.ext.web.Cookie jwtCookie = io.vertx.ext.web.Cookie.cookie("access_token",
+                JsonObject access = decoder.decode(json.getString("access_token"));
+                log.warn(
+                    "id_token: " + id.encodePrettily() + "\naccess_token: " + access.encodePrettily()); // TODO remove
+
+                Session session = new Session();
+                session.username = id.getString("preferred_username");
+                session.displayName = id.getString("name", id.getString("preferred_username"));
+                session.expires = Instant.now().plus(12, ChronoUnit.HOURS);
+                AuthoritySet authoritySet = new AuthoritySet();
+                authoritySet.actingUsername = session.username;
+                authoritySet.actingDisplayName = session.displayName;
+                authoritySet.combinedDisplayName = session.displayName;
+                // TODO not getting authority from keycloak
+//                authoritySet.staticAuthority.addAll(json.getJsonArray("authority").getList());
+                session.authoritySets.put(DEFAULT_AUTHORITY_SET, authoritySet);
+                sessions.put(sessionToken, session);
+              }
+
+              io.vertx.ext.web.Cookie jwtCookie = io.vertx.ext.web.Cookie.cookie("session_token",
                   sessionToken).setHttpOnly(true)
-                  .setSecure(redirectUri.startsWith("https"));
+                  .setSecure(redirectUri(rc).startsWith("https"));
               io.vertx.ext.web.Cookie xsrfCookie = io.vertx.ext.web.Cookie.cookie("XSRF-TOKEN",
                   new TokenGenerator(secureRandom).create())
-                  .setSecure(redirectUri.startsWith("https"));
+                  .setSecure(redirectUri(rc).startsWith("https"));
 
               rc.response().headers()
                   .add(SET_COOKIE, jwtCookie.encode())
                   .add(SET_COOKIE, xsrfCookie.encode());
-              rc.response().setStatusCode(302).putHeader("location", baseUri + "/").end();
+              rc.response().setStatusCode(302).putHeader("location", absoluteContext(config::getString, rc) + "/").end();
             } else {
               log.error("Unexpected response connecting to " + tokenUrl + ": " + response.statusCode() + " "
                   + response.statusMessage() + " body: " + body);
@@ -354,7 +427,7 @@ public class SecurityImpl implements Security {
             }
           } catch (Exception e) {
             log.error("Unexpected error connecting to " + tokenUrl + ": " + response.statusCode() + " "
-                + response.statusMessage() + " body: " + body);
+                + response.statusMessage() + " body: " + body, e);
             rc.response().setStatusCode(500).end("Bad response from token endpoint");
           } finally {
             log.debug("Request token: {}", metric.getMessage());
@@ -362,7 +435,7 @@ public class SecurityImpl implements Security {
         }));
       })).exceptionHandler(mdc(e -> {
         try {
-          log.error("Unexpected error connecting to " + logoutUrl, e);
+          log.error("Unexpected error connecting to " + tokenUrl, e);
           rc.response().setStatusCode(500).end("Bad response from token endpoint");
         } finally {
           log.debug("Request token: {}", metric.getMessage());
@@ -376,27 +449,26 @@ public class SecurityImpl implements Security {
   @Override
   public Handler<RoutingContext> loginStatusHandler() {
     return rc -> {
-      User user = rc.user();
+      AuthenticatedUser user = AuthenticatedUser.from(rc);
       if (user != null) {
-        JsonObject principal = user.principal();
         rc.response().end(new JsonObject()
             .put("authenticated", true)
-            // TODO issuer; authenticated and acting principal; authority sets
-            .put("accountId", principal.getString("sub"))
-            .put("userDisplayName", principal.getString("name")).encode());
+            // TODO issuer; acting principal; authority sets
+            .put("accountId", user.getAuthenticatedAs())
+            .put("userDisplayName", user.getFullDisplayName()).encode());
       } else {
         QueryStringEncoder params = new QueryStringEncoder("");
 
         params.addParam("client_id", clientId);
         params.addParam("response_type", "code");
         params.addParam("scope", scope);
-        params.addParam("redirect_uri", redirectUri);
+        params.addParam("redirect_uri", redirectUri(rc));
         String state = new TokenGenerator(secureRandom).create(15);
         params.addParam("state", state);
 
         rc.response().headers().add(SET_COOKIE, io.vertx.ext.web.Cookie.cookie("state", state)
             .setHttpOnly(true)
-            .setSecure(redirectUri.startsWith("https")).encode());
+            .setSecure(redirectUri(rc).startsWith("https")).encode());
 
         rc.response().end(new JsonObject()
             .put("authenticated", false)
@@ -409,7 +481,8 @@ public class SecurityImpl implements Security {
   public Handler<RoutingContext> logoutHandler() {
     return rc -> {
       if ("yes".equals(rc.request().getParam("done"))) {
-        rc.response().end("Logout complete");
+        rc.response().setStatusCode(302).putHeader("Location", VertxBase.absoluteContext(config::getString, rc)).end();
+//        rc.response().end("Logout complete");
         return;
       }
 
@@ -417,10 +490,170 @@ public class SecurityImpl implements Security {
       fromEnc.addParam("redirect_uri", VertxBase.absolutePath(config::getString, rc) + "?done=yes");
 
       rc.response().headers()
-          .add(SET_COOKIE, io.vertx.ext.web.Cookie.cookie("access_token", "").setMaxAge(0).encode())
+          .add(SET_COOKIE, io.vertx.ext.web.Cookie.cookie("session_token", "").setMaxAge(0).encode())
           .add(SET_COOKIE, io.vertx.ext.web.Cookie.cookie("XSRF-TOKEN", "").setMaxAge(0).encode())
           .add("location", logoutUrl + fromEnc);
       rc.response().setStatusCode(302).end();
     };
+  }
+
+  private String redirectUri(RoutingContext rc) {
+    return absoluteContext(config::getString, rc) + "/callback";
+  }
+
+  private static class Session {
+    Instant expires;
+    Instant revoked;
+    // TODO user agent, ip, bytes up, bytes down, request counts, errors, maliciousness score, ...
+
+    String username;
+    String displayName;
+    Map<String, AuthoritySet> authoritySets = new HashMap<>();
+  }
+
+  private static class AuthoritySet {
+    String actingUsername;
+    String actingDisplayName;
+    String combinedDisplayName;
+    Set<String> staticAuthority = new HashSet<>();
+  }
+
+  /**
+   * This handler uses secret tokens from a browser cookie ("session_token")
+   * to authenticate the user. It supports both optional and mandatory
+   * authentication, so you can put an optional one in front of everything
+   * to get attributed logging where possible, and a mandatory handler
+   * in front of your protected resources.
+   *
+   * <p>This handler manages the SLF4J MDC context by populating the "userId"
+   * (based on authentication) and "windowId" (based on the X-WINDOW-ID header,
+   * if present). These are generally not cleared by this handler, as that is
+   * left to the MetricsHandler after it finishes logging the response.</p>
+   *
+   * <p>If enforcement is mandatory, a 401 response will be returned if
+   * authentication did not succeed for any reason.</p>
+   *
+   * <p>If enforcement is mandatory, it will also perform XSRF defenses,
+   * matching the cookie named XSRF-TOKEN (if present) against the header
+   * named X-XSRF-TOKEN. A 403 response will be returned if the header
+   * was not provided or did not match the cookie.</p>
+   */
+  public static class WebAppSessionAuthHandler implements Handler<RoutingContext> {
+    private static final Logger log = LoggerFactory.getLogger(WebAppSessionAuthHandler.class);
+    private final Map<String, Session> sessions;
+    private final boolean mandatory;
+    private final boolean checkXsrf;
+    private final Handler<RoutingContext> redirecter;
+
+    private WebAppSessionAuthHandler(Map<String, Session> sessions, boolean mandatory, boolean checkXsrf, Handler<RoutingContext> redirecter) {
+      this.sessions = sessions;
+      this.mandatory = mandatory;
+      this.checkXsrf = checkXsrf;
+      this.redirecter = redirecter;
+    }
+
+    public static WebAppSessionAuthHandler optional(Map<String, Session> sessions) {
+      return new WebAppSessionAuthHandler(sessions, false, false, null);
+    }
+
+    public static WebAppSessionAuthHandler mandatory(Map<String, Session> sessions) {
+      return new WebAppSessionAuthHandler(sessions, true, true, null);
+    }
+
+    public static WebAppSessionAuthHandler mandatory(Map<String, Session> sessions, boolean checkXsrf,
+                                                     Handler<RoutingContext> redirectUri) {
+      return new WebAppSessionAuthHandler(sessions, true, checkXsrf, redirectUri);
+    }
+
+    public void handle(RoutingContext rc) {
+      AuthenticatedUser user = AuthenticatedUser.from(rc);
+      if (user != null) {
+        String userId = user.getAuthenticatedAs();
+        if (!userId.equals(MDC.get("userId"))) {
+          log.warn("User from routing context (" + userId + ") did not match logging context ("
+              + MDC.get("userId") + ")");
+          MDC.put("userId", userId);
+        }
+        rc.next();
+      } else {
+        MDC.remove("userId");
+
+        Metric metric = MetricsHandler.metricFor(rc);
+
+        String windowId = rc.request().getHeader("X-WINDOW-ID");
+        if (windowId != null && windowId.matches("[a-zA-Z0-9]{1,32}")) {
+          MDC.put("windowId", windowId);
+        } else {
+          MDC.remove("windowId");
+        }
+
+        if (mandatory && checkXsrf) {
+          io.vertx.ext.web.Cookie xsrf = rc.getCookie("XSRF-TOKEN");
+          if (xsrf != null) {
+            String xsrfHeader = rc.request().getHeader("X-XSRF-TOKEN");
+            if (xsrfHeader == null || xsrfHeader.length() == 0) {
+              log.debug("Missing XSRF header");
+              if (redirecter == null) {
+                rc.response().setStatusCode(403).end("Send X-XSRF-TOKEN header with value from XSRF-TOKEN cookie");
+              } else {
+                redirecter.handle(rc);
+              }
+              return;
+            } else if (!xsrf.getValue().equals(xsrfHeader)) {
+              log.debug("XSRF header did not match");
+              if (redirecter == null) {
+                rc.response().setStatusCode(403).end("The X-XSRF-TOKEN header value did not match the XSRF-TOKEN cookie");
+              } else {
+                redirecter.handle(rc);
+              }
+              return;
+            }
+          }
+        }
+
+        io.vertx.ext.web.Cookie sessionCookie = rc.getCookie("session_token");
+        if (sessionCookie != null && sessionCookie.getValue() != null) {
+          Session session = sessions.get(sessionCookie.getValue());
+          // TODO handle case where session is not in our cache and we need to get it from the coordinator
+          if (session != null && session.revoked == null && session.expires.isAfter(Instant.now())) {
+            metric.checkpoint("auth");
+            new AuthenticatedUser(session.username, session.username, session.displayName,
+                session.authoritySets.get(DEFAULT_AUTHORITY_SET).staticAuthority).store(rc);
+            MDC.put("userId", session.username);
+            rc.next();
+          } else {
+            metric.checkpoint("authFail");
+            rc.response().headers().add(SET_COOKIE, sessionCookie.setValue("").setMaxAge(0).encode());
+            if (mandatory) {
+              if (log.isTraceEnabled()) {
+                if (session == null) {
+                  log.trace("Session cookie is null");
+                } else {
+                  log.trace("Session cookie is invalid: expires=" + session.expires + " revoked=" + session.revoked);
+                }
+              }
+              if (redirecter == null) {
+                rc.response().setStatusCode(401).end("Session expired");
+              } else {
+                redirecter.handle(rc);
+              }
+            } else {
+              rc.next();
+            }
+          }
+        } else {
+          metric.checkpoint("noAuth");
+          if (mandatory) {
+            if (redirecter == null) {
+              rc.response().setStatusCode(401).end("No session_token cookie");
+            } else {
+              redirecter.handle(rc);
+            }
+          } else {
+            rc.next();
+          }
+        }
+      }
+    }
   }
 }

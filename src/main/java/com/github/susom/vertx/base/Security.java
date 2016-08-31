@@ -35,6 +35,8 @@ public interface Security {
 
   Handler<RoutingContext> authenticateOrRedirectJs();
 
+  Handler<RoutingContext> requireAuthority(String authority);
+
   Handler<RoutingContext> callbackHandler();
 
   Handler<RoutingContext> loginStatusHandler();

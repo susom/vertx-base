@@ -17,10 +17,10 @@ package com.github.susom.vertx.base;
 import com.github.susom.database.Metric;
 import io.vertx.core.Handler;
 import io.vertx.core.json.JsonObject;
-import io.vertx.ext.auth.User;
 import io.vertx.ext.auth.jwt.JWTAuth;
 import io.vertx.ext.web.Cookie;
 import io.vertx.ext.web.RoutingContext;
+import java.util.HashSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -72,9 +72,9 @@ public class WebAppJwtAuthHandler implements Handler<RoutingContext> {
   }
 
   public void handle(RoutingContext rc) {
-    User user = rc.user();
+    AuthenticatedUser user = AuthenticatedUser.from(rc);
     if (user != null) {
-      String userId = user.principal().getString("sub");
+      String userId = user.getAuthenticatedAs();
       if (!userId.equals(MDC.get("userId"))) {
         log.warn("User from routing context (" + userId + ") did not match logging context ("
             + MDC.get("userId") + ")");
@@ -123,7 +123,8 @@ public class WebAppJwtAuthHandler implements Handler<RoutingContext> {
           if (r.succeeded()) {
             metric.checkpoint("auth");
             String userId = r.result().principal().getString("sub");
-            rc.setUser(r.result());
+            String displayName = r.result().principal().getString("name");
+            new AuthenticatedUser(userId, userId, displayName, new HashSet<>()).store(rc);
             MDC.put("userId", userId);
             rc.next();
           } else {

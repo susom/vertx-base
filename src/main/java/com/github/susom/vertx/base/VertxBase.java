@@ -15,6 +15,7 @@
 package com.github.susom.vertx.base;
 
 import com.github.susom.database.Config;
+import com.github.susom.database.ConfigMissingException;
 import com.github.susom.database.Metric;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Future;
@@ -120,7 +121,9 @@ public class VertxBase {
     vertx.setPeriodic(300000L, id -> executeBlocking(vertx, f -> {
       Metric metric = new Metric(log.isTraceEnabled());
       random.setSeed(random.generateSeed(4));
-      log.trace("Re-seeded secure random " + metric.getMessage());
+      if (log.isTraceEnabled()) {
+        log.trace("Re-seeded secure random " + metric.getMessage());
+      }
       f.complete();
     }, r -> {
       if (r.failed()) {
@@ -334,9 +337,15 @@ public class VertxBase {
     if (isOrCausedBy(t, BadRequestException.class)) {
       log.debug("Validation error", t);
       rc.response().setStatusCode(400).end(new JsonObject().put("error", t.getMessage()).encode());
+    } else if (isOrCausedBy(t, AuthenticationException.class)) {
+      log.warn("Authentication error", t);
+      rc.response().setStatusCode(401).end(new JsonObject().put("error", t.getMessage()).encode());
+    } else if (isOrCausedBy(t, AuthorizationException.class)) {
+      log.warn("Authorization error", t);
+      rc.response().setStatusCode(403).end(new JsonObject().put("error", t.getMessage()).encode());
     } else {
       log.error("Unexpected error", t);
-      rc.response().setStatusCode(500).end();
+      rc.response().setStatusCode(500).end(new JsonObject().put("error", "Internal server error").encode());
     }
   }
 
@@ -349,12 +358,54 @@ public class VertxBase {
     return false;
   }
 
-  public static String absoluteRoot(Function<String, String> keyToValueConfig/*, RoutingContext rc*/) {
+  /**
+   * <p>Figure out the absolute, external URL for this server's root. For example:</p>
+   *
+   * <code>
+   *   https://example.com/
+   * </code>
+   *
+   * <p>The trailing '/' will be included in the returned value.</p>
+   *
+   * <p>This value is calculated based on three configuration properties. For the
+   * example above these would be:</p>
+   *
+   * <code>
+   *   public.url=https://example.com
+   * </code>
+   *
+   * <p>Or, equivalently:</p>
+   *
+   * <code>
+   *   public.proto=https
+   *   public.host=example.com
+   *   public.port=443
+   * </code>
+   *
+   * @param keyToValueConfig this configuration must contain values for the three
+   *                         keys above, or a ConfigMissingException exception will be thrown
+   * @return the full public URL, including trailing slash
+   */
+  public static String absoluteRoot(Function<String, String> keyToValueConfig) {
     Config config = Config.from().custom(keyToValueConfig::apply).get();
 
-    String proto = config.getStringOrThrow("public.proto");
-    String host = config.getStringOrThrow("public.host");
-    String port = config.getStringOrThrow("public.port");
+    String url = config.getString("public.url");
+    String proto;
+    String host;
+    String port;
+    if (url == null) {
+      proto = config.getString("public.proto");
+      host = config.getString("public.host");
+      port = config.getString("public.port");
+      if (proto == null || host == null || port == null) {
+        throw new ConfigMissingException("You must provide config property public.url or public.[proto,host,port]");
+      }
+    } else {
+      PortInfo portInfo = PortInfo.parseUrl(url);
+      proto = portInfo.proto();
+      host = portInfo.host();
+      port = Integer.toString(portInfo.port());
+    }
 
     StringBuilder buf = new StringBuilder();
     buf.append(proto).append("://").append(host);
@@ -376,6 +427,20 @@ public class VertxBase {
     return buf.toString();
   }
 
+  /**
+   * <p>This calls {@link #absoluteRoot(Function)} and then appends the mount point
+   * of the router handling this request. For example, if you have a root router
+   * and then add a sub router using context "/foo" this might return:</p>
+   *
+   * <code>
+   *   https://example.com/foo/
+   * </code>
+   *
+   * @param keyToValueConfig configuration containing values for public.url or public.proto,
+   *                         public.host, and public.port
+   * @param rc the context handling a particular request (used to determine the mount point)
+   * @return the full public URL, including mount point and trailing slash
+   */
   public static String absoluteContext(Function<String, String> keyToValueConfig, RoutingContext rc) {
     String root = absoluteRoot(keyToValueConfig);
     String context = rc.mountPoint();

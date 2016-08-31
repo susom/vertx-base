@@ -33,7 +33,7 @@ public class Valid {
   // Maybe I could annotate this somehow like @DoNotModify (unsafe to do things like lowercase or normalize after validation)
   @Nullable
   public static String matchesOpt(String value, Pattern requiredPattern, String validationMessage) {
-    if (value == null) {
+    if (value == null || value.length() == 0) {
       return null;
     }
 
