@@ -32,7 +32,21 @@ public class PortInfo {
     this.port = port;
   }
 
+  /**
+   * Read the protocol, host, and port from a URL-like string. This
+   * is not a full URL parsing scheme. The URL must use only the http
+   * or https protocol (lowercase). Default ports 80 and 443 will be
+   * inferred as appropriate.
+   *
+   * @param url a url-like string (e.g. http://example.com/foo), or null
+   * @return the parsed protocol, host, port triplet, or null if url was null
+   * @throws RuntimeException if the url could not be parsed
+   */
   public static PortInfo parseUrl(String url) {
+    if (url == null) {
+      return null;
+    }
+
     String proto;
     String host;
     int port;
