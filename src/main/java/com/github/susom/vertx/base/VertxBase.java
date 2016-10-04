@@ -63,13 +63,20 @@ public class VertxBase {
     Map mdc = MDC.getCopyOfContextMap();
 
     return t -> {
+      Map restore = MDC.getCopyOfContextMap();
       try {
-        if (mdc != null) {
+        if (mdc == null) {
+          MDC.clear();
+        } else {
           MDC.setContextMap(mdc);
         }
         handler.handle(t);
       } finally {
-        MDC.clear();
+        if (restore == null) {
+          MDC.clear();
+        } else {
+          MDC.setContextMap(restore);
+        }
       }
     };
   }
