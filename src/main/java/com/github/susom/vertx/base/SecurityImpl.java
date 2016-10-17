@@ -181,7 +181,9 @@ public class SecurityImpl implements Security {
           .setPath(rc.mountPoint() + "/")
           .setSecure(redirectUri(rc).startsWith("https")).encode());
 
-      rc.response().setStatusCode(401).putHeader("WWW-Authenticate", "Redirect " + authUrl + params).end();
+      String loginUrl = authUrl + params;
+      rc.response().setStatusCode(401).putHeader("WWW-Authenticate", "Redirect " + loginUrl)
+          .end("401 Authentication Required");
     });
     authenticateRequiredOrDeny = rc -> {
       if (rc.user() == null) {
@@ -316,7 +318,7 @@ public class SecurityImpl implements Security {
       AuthenticatedUser user = AuthenticatedUser.from(rc);
       if (user == null) {
         log.warn("No authenticated user");
-        rc.response().setStatusCode(401).end();
+        rc.response().setStatusCode(401).end("401 Authentication Required");
       } else {
         user.isAuthorised(authority, r -> {
           if (r.succeeded() && r.result()) {
@@ -324,7 +326,7 @@ public class SecurityImpl implements Security {
           } else {
             log.warn("RequiredAuthorityMissing=\"" + authority + "\" User="
                 + user.principal().encode());
-            rc.response().setStatusCode(403).end();
+            rc.response().setStatusCode(403).end("403 Insufficient Authority");
           }
         });
       }
