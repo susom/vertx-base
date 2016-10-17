@@ -68,6 +68,11 @@
       <artifactId>vertx-auth-jwt</artifactId>
       <version>${vertx.version}</version>
     </dependency>
+    <dependency>
+      <groupId>org.owasp.encoder</groupId>
+      <artifactId>encoder</artifactId>
+      <version>1.2</version>
+    </dependency>
 
     <dependency>
       <groupId>junit</groupId>

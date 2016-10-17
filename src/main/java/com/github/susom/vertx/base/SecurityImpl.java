@@ -41,6 +41,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.regex.Pattern;
+
+import org.owasp.encoder.Encode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -65,7 +67,6 @@ public class SecurityImpl implements Security {
   private final Handler<RoutingContext> authenticateRequiredOrRedirectJs;
   private final SecureRandom secureRandom;
   private final Map<String, Session> sessions = new HashMap<>();
-//  private final JWTAuth jwt;
   private final Config config;
   private HttpClient httpClient;
   private String authUrl;
@@ -246,7 +247,7 @@ public class SecurityImpl implements Security {
           + "if(match){window.name=\"windowId:\"+match[1]+\";q=\"+window.location.search+window.location.hash}\n"
           + "else{window.name=\"windowId:\"+Math.floor(Math.random()*1e16).toString(36).slice(0, 8)"
           + "+\";q=\"+window.location.search+window.location.hash}\n"
-          + "window.location.href='" + authUrl + params + "';\n"
+          + "window.location.href='" + Encode.forJavaScript(authUrl + params) + "';\n"
           + "</script></body></html>");
     });
     authenticateRequiredOrRedirectJs = rc -> {
