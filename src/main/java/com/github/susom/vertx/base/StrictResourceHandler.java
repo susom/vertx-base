@@ -96,7 +96,9 @@ public class StrictResourceHandler implements Handler<RoutingContext> {
               String servePath = prefix + resourcePath.substring(resourcePath.indexOf(dir) + dir.length());
               // This copies the file into the .vertx cache directory to be served via sendFile()
               File file = vertx.resolveFile(resourcePath);
-              log.debug("Adding classpath resource " + servePath + " (" + resourcePath + ")");
+              if (log.isTraceEnabled()) {
+                log.trace("Adding classpath resource " + servePath + " (" + resourcePath + ")");
+              }
               pathToResource.put(servePath, file);
             } else if (resource instanceof FileSystemResource) {
               File file = ((FileSystemResource) resource).getFile();
@@ -107,7 +109,9 @@ public class StrictResourceHandler implements Handler<RoutingContext> {
               // This isn't quite correct because it assumes the absolute path does
               // not contain dir, but I haven't figured out how to know the base yet
               String servePath = prefix + resourcePath.substring(resourcePath.indexOf("/" + dir) + 1).substring(dir.length());
-              log.debug("Adding file resource " + servePath + " (" + resourcePath + ")");
+              if (log.isTraceEnabled()) {
+                log.trace("Adding file resource " + servePath + " (" + resourcePath + ")");
+              }
               pathToResource.put(servePath, file);
             }
           }
