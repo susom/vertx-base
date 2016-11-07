@@ -16,6 +16,7 @@
 package com.github.susom.vertx.base;
 
 import io.vertx.core.Handler;
+import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 
 /**
@@ -27,19 +28,16 @@ import io.vertx.ext.web.RoutingContext;
 public interface Security {
 //  void registerApp(String appName);
 
-  Handler<RoutingContext> authenticateOptional();
-
-  Handler<RoutingContext> authenticateOrDeny();
-
-  Handler<RoutingContext> authenticateOrRedirect302();
-
-  Handler<RoutingContext> authenticateOrRedirectJs();
+  /**
+   * Create a new router and attach it to the root at the mount point specified.
+   * The router will be configured to require authentication for everything except
+   * for the top resource (.../mountPoint/) which will usually return a static
+   * HTML client-side redirect if not authenticated, or will flow through to
+   * the application to load the static HTML. There will also be unauthenticated
+   * (or semi-authenticated) paths under mountPoint to facilitate login, logout,
+   * status checks, etc. that vary based on the type of authenticator used.
+   */
+  Router authenticatedRouter(String mountPoint);
 
   Handler<RoutingContext> requireAuthority(String authority);
-
-  Handler<RoutingContext> callbackHandler();
-
-  Handler<RoutingContext> loginStatusHandler();
-
-  Handler<RoutingContext> logoutHandler();
 }

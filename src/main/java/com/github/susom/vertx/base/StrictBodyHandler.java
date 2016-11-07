@@ -15,8 +15,10 @@
 package com.github.susom.vertx.base;
 
 import com.github.susom.database.Metric;
+
 import io.vertx.core.Handler;
 import io.vertx.core.buffer.Buffer;
+import io.vertx.core.http.HttpServerRequest;
 import io.vertx.ext.web.RoutingContext;
 
 /**
@@ -25,21 +27,22 @@ import io.vertx.ext.web.RoutingContext;
  *
  * @author garricko
  */
-public class BodyHandlerStrict implements Handler<RoutingContext> {
+public class StrictBodyHandler implements Handler<RoutingContext> {
   private final long bodyLimitBytes;
   private boolean multipart;
+  private boolean mergeFormAttributes;
 
   /**
    * Use a body size limit of 16,000 bytes.
    */
-  public BodyHandlerStrict() {
+  public StrictBodyHandler() {
     this(16000);
   }
 
   /**
    * Use the specified body size limit (-1 means unlimited).
    */
-  public BodyHandlerStrict(long bodyLimitBytes) {
+  public StrictBodyHandler(long bodyLimitBytes) {
     this.bodyLimitBytes = bodyLimitBytes;
   }
 
@@ -48,9 +51,18 @@ public class BodyHandlerStrict implements Handler<RoutingContext> {
    * will ensure {@link io.vertx.core.http.HttpServerRequest#setExpectMultipart(boolean)}
    * is called before we read the body.
    */
-  public BodyHandlerStrict multipart() {
+  public StrictBodyHandler multipart() {
     multipart = true;
     return this;
+  }
+
+  /**
+   * Indicate this request will contain a multi-part body (e.g. encoded HTML form). In
+   * addition, form attributes will be treated like (combined with) query parameters.
+   */
+  public StrictBodyHandler multipartMergeForm() {
+    mergeFormAttributes = true;
+    return multipart();
   }
 
   public void handle(RoutingContext rc) {
@@ -82,6 +94,13 @@ public class BodyHandlerStrict implements Handler<RoutingContext> {
       if (metric != null) {
         metric.checkpoint("body[" + body.length() + "]");
       }
+
+      // Treat the form like query parameters if requested
+      HttpServerRequest request = rc.request();
+      if (mergeFormAttributes) {
+        request.params().addAll(request.formAttributes());
+      }
+
       rc.setBody(body);
       rc.next();
     }).exceptionHandler(rc::fail);

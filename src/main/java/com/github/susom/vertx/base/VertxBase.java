@@ -261,35 +261,6 @@ public class VertxBase {
     return root;
   }
 
-  public static Router authenticatedRouter(Vertx vertx, SecureRandom random, Security security,
-                                           boolean logFullRequests) {
-    Router router = Router.router(vertx);
-
-    // TODO add active defense handler here in front of everything
-
-    // Optimistically pick up logged in user here so logging and metrics will
-    // be correctly attributed whenever possible.
-    router.route().handler(security.authenticateOptional());
-    router.route().handler(new MetricsHandler(random, logFullRequests));
-
-    // Authentication callback and logout have to be accessible without authenticating
-    router.get("/callback").handler(security.callbackHandler());
-    router.get("/logout").handler(security.logoutHandler());
-
-    // Special case redirect for primary page. This will load a small HTML+JS
-    // page and execute some JavaScript to preserve the query string and bookmark
-    // before doing a client-side redirect.
-    router.get("/").handler(security.authenticateOrRedirectJs());
-
-    // Lock down everything else to return 401 with WWW-Authenticate: Redirect <login>
-    router.route().handler(security.authenticateOrDeny());
-
-    // Information for the client about whether we are logged in, how to login, etc.
-    router.get("/login-status").handler(security.loginStatusHandler());
-
-    return router;
-  }
-
   /**
    * Add a JVM shutdown hook that will attempt to cleanly shut down Vert.x
    * and then optionally shut down other resources (like the database connection

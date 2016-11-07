@@ -56,7 +56,7 @@ public class FakeAuthentication {
   }
 
   public void configureRouter(Vertx vertx, Router router) {
-    BodyHandlerStrict smallBodyHandler = new BodyHandlerStrict(4000);
+    StrictBodyHandler smallBodyHandler = new StrictBodyHandler(4000);
 
     router.route().handler(new MetricsHandler(secureRandom));
 

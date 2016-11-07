@@ -19,7 +19,9 @@ import com.github.susom.database.DatabaseProviderVertx;
 import com.github.susom.database.DatabaseProviderVertx.Builder;
 import com.github.susom.dbgoodies.vertx.DatabaseHealthCheck;
 import com.github.susom.vertx.base.AuthenticatedUser;
+import com.github.susom.vertx.base.Security;
 import com.github.susom.vertx.base.SecurityImpl;
+import com.github.susom.vertx.base.StrictFileHandler;
 import com.github.susom.vertx.base.StrictResourceHandler;
 import com.github.susom.vertx.base.Valid;
 import com.github.susom.vertx.base.VertxBase;
@@ -29,6 +31,9 @@ import io.vertx.ext.web.Router;
 import java.io.FilePermission;
 import java.net.SocketPermission;
 import java.security.SecureRandom;
+import java.security.SecurityPermission;
+import java.util.PropertyPermission;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,23 +49,42 @@ public class SampleMain {
     try {
       initializeLogging();
       redirectConsoleToLog();
+
       startSecurityManager(
           // For serving our content
-          new SocketPermission("localhost:8080", "listen,resolve"),
+          new SocketPermission("*:8888", "listen,resolve"),
           // For connecting to the fake security server (embedded)
           new SocketPermission("localhost:8080", "connect,resolve"),
           // These two are for hsqldb to store its database files
           new FilePermission(workDir() + "/target", "read,write,delete"),
-          new FilePermission(workDir() + "/target/-", "read,write,delete")
+          new FilePermission(workDir() + "/target/-", "read,write,delete"),
+          new FilePermission(workDir() + "/src", "read"),
+          new FilePermission(workDir() + "/src/-", "read"),
+          // Figure out which of these to keep
+          new FilePermission(workDir() + "/conf", "read,write"),
+          new FilePermission(workDir() + "/conf/-", "read,write"),
+          new FilePermission(workDir() + "/file-uploads", "read,write"),
+          new SecurityPermission("org.apache.xml.security.register"),
+          new PropertyPermission("org.apache.xml.security.ignoreLineBreaks", "write")
       );
 
       Config config = Config.from()
           .value("database.url", "jdbc:hsqldb:file:target/hsqldb;shutdown=true")
           .value("database.user", "SA")
           .value("database.password", "")
-          .value("listen.url", "http://localhost:8080")
-          .value("public.url", "http://localhost:8080")
-          .value("insecure.fake.security", "yes").get();
+          .value("listen.url", "http://localhost:8888")
+          .value("public.url", "http://localhost:8888")
+//          .value("insecure.fake.security", "yes")
+          .value("insecure.log.full.requests", "yes")
+          .value("security.authenticator", "saml")
+          .value("saml.keystore.path", "conf/saml-keystore.jks")
+          .value("saml.keystore.password", "pac4j-demo-passwd")
+          .value("saml.key.password", "pac4j-demo-passwd")
+          .value("saml.idp.metadata", "conf/saml-idp-metadata-keycloak.xml")
+          .value("saml.sp.id", "local-test")
+//          .value("saml.sp.id", "urn:mace:saml:mhealth-access-qa.stanford.edu")
+          .value("saml.sp.metadata", "conf/saml-sp-metadata.xml")
+          .get();
 //      String propertiesFile = System.getProperty("properties", "local.properties");
 //      Config config = Config.from().systemProperties().propertyFile(propertiesFile.split(":")).get();
 
@@ -70,9 +94,15 @@ public class SampleMain {
 
       // The meat of the application goes here
       Router root = rootRouter(vertx, "/app");
-      SecurityImpl security = new SecurityImpl(vertx, root, random, config::getString);
-      Router sub = authenticatedRouter(vertx, random, security, false);
-      root.mountSubRouter("/app", sub);
+
+      root.get("/src/*").handler(new StrictFileHandler(vertx)
+              .addDir("src/main/java", "**/S*.java", "src")
+//          .addDir("static/assets", "**/*", "assets")
+//          .rootIndex("sample.nocache.html")
+      );
+
+      Security security = new SecurityImpl(vertx, root, random, config);
+      Router sub = security.authenticatedRouter("/app");
       sub.get("/api/v1/secret").handler(security.requireAuthority("service:secret"));
       sub.get("/api/v1/secret").handler(rc -> {
         Long messageId = Valid.nonnegativeLongOpt(rc.request().getParam("id"), "Expecting a number for id");
@@ -103,9 +133,14 @@ public class SampleMain {
       new DatabaseHealthCheck(vertx, db, config).addStatusHandlers(root);
 
       // Start the server
-      vertx.createHttpServer().requestHandler(root::accept).listen(8080, result ->
-          log.info("Started server on port " + 8080 + ":\n    http://localhost:8080/app/")
-      );
+      vertx.createHttpServer().requestHandler(root::accept).listen(8888, "localhost", h -> {
+        if (h.succeeded()) {
+          int port = h.result().actualPort();
+          log.info("Started server on port " + port + ":\n    http://localhost:" + port + "/app/saml" );
+        } else {
+          log.error("Could not start server", h.cause());
+        }
+      });
 
       // Make sure we cleanly shutdown Vert.x and the database pool
       addShutdownHook(vertx, db::close);
