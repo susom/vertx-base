@@ -178,7 +178,7 @@ public class SamlAuthenticator implements Security {
 
             String sessionToken = new TokenGenerator(secureRandom).create(64);
             InternalSession session = new InternalSession();
-            session.username = profile.getId();
+            session.username = profileAttributeAsString(profile, "uid");
             if (session.username == null) {
               throw new RuntimeException("Could not determine username from SAML response");
             }
