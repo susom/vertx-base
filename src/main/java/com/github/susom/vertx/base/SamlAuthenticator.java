@@ -313,7 +313,7 @@ public class SamlAuthenticator implements Security {
     // between the various sub-routers
     root.post("/saml-callback").handler(authenticateOptional);
     root.post("/saml-callback").handler(new MetricsHandler(secureRandom, config.getBooleanOrFalse("insecure.log.full.requests")));
-    root.post("/saml-callback").handler(new StrictBodyHandler(16000).multipartMergeForm());
+    root.post("/saml-callback").handler(new StrictBodyHandler(config.getInteger("saml.callback.limit.bytes", 256000)).multipartMergeForm());
     root.post("/saml-callback").handler(callbackHandler);
   }
 
