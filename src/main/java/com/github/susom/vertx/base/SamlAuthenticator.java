@@ -27,6 +27,7 @@ import java.util.Set;
 import java.util.function.Function;
 
 import org.opensaml.saml.common.xml.SAMLConstants;
+import org.owasp.encoder.Encode;
 import org.pac4j.core.client.Clients;
 import org.pac4j.core.client.RedirectAction;
 import org.pac4j.core.client.RedirectAction.RedirectType;
@@ -292,7 +293,7 @@ public class SamlAuthenticator implements Security {
           + "if(match){window.name=\"windowId:\"+match[1]+\";q=\"+window.location.search+window.location.hash}\n"
           + "else{window.name=\"windowId:\"+Math.floor(Math.random()*1e16).toString(36).slice(0, 8)"
           + "+\";q=\"+window.location.search+window.location.hash}\n"
-          + "window.location.href='login';\n"
+          + "window.location.href='" + Encode.forJavaScript(absoluteContext(config::getString, rc) + "/login") + "';\n"
           + "</script></body></html>");
     });
     authenticateRequiredOrRedirectJs = rc -> {
