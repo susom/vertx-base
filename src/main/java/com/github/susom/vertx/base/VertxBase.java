@@ -21,6 +21,7 @@ import io.vertx.core.AsyncResult;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
+import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
@@ -313,18 +314,27 @@ public class VertxBase {
   }
 
   public static void jsonApiFail(RoutingContext rc, Throwable t) {
+    HttpServerResponse response = rc.response();
+
     if (isOrCausedBy(t, BadRequestException.class)) {
       log.debug("Validation error", t);
-      rc.response().setStatusCode(400).end(new JsonObject().put("error", t.getMessage()).encode());
+      response.setStatusCode(400).end(new JsonObject().put("error", t.getMessage()).encode());
     } else if (isOrCausedBy(t, AuthenticationException.class)) {
       log.warn("Authentication error", t);
-      rc.response().setStatusCode(401).end(new JsonObject().put("error", t.getMessage()).encode());
+      response.setStatusCode(401).end(new JsonObject().put("error", t.getMessage()).encode());
     } else if (isOrCausedBy(t, AuthorizationException.class)) {
       log.warn("Authorization error", t);
-      rc.response().setStatusCode(403).end(new JsonObject().put("error", t.getMessage()).encode());
+      response.setStatusCode(403).end(new JsonObject().put("error", t.getMessage()).encode());
     } else {
-      log.error("Unexpected error", t);
-      rc.response().setStatusCode(500).end(new JsonObject().put("error", "Internal server error").encode());
+      int statusCode = rc.statusCode();
+      log.error("Unexpected error {}", statusCode, t);
+      if (statusCode < 0) {
+        statusCode = 500;
+      }
+
+      response.setStatusCode(statusCode);
+      String message = response.getStatusMessage();
+      response.setStatusCode(statusCode).end(new JsonObject().put("error", message).encode());
     }
   }
 
