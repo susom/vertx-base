@@ -255,7 +255,8 @@ public class VertxBase {
     });
     if (defaultContext != null) {
       root.get("/").handler(rc -> {
-        rc.response().setStatusCode(302).putHeader("Location", defaultContext).end();
+        rc.response().setStatusCode(302).putHeader("Location", defaultContext.endsWith("/") ? defaultContext
+            : defaultContext + "/").end();
       });
     }
     return root;
