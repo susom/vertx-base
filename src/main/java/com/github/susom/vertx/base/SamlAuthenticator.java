@@ -287,9 +287,11 @@ public class SamlAuthenticator implements Security {
     Handler<RoutingContext> mandatoryRedirectJs = WebAppSessionAuthHandler.mandatory(sessions, false, rc -> {
       log.debug("Sending client-side JavaScript redirect for SAML authentication");
       // TODO add test cookie and client-side cookie check with error message
-      rc.response().putHeader("content-type", "text/html").end("<!DOCTYPE html><html><body>"
+      rc.response().putHeader("content-type", "text/html").end("<!DOCTYPE html><html><head>"
+          + "<link rel=\"icon\" type=\"image/png\" href=\"data:image/png;base64,iVBORw0KGgo=\"></head><body>"
           + "<noscript>\n"
-          + "  <div style=\"width: 22em; position: absolute; left: 50%; margin-left: -11em; color: red; background-color: white; border: 1px solid red; padding: 4px; font-family: sans-serif\">\n"
+          + "  <div style=\"width: 22em; position: absolute; left: 50%; margin-left: -11em; "
+          + "color: red; background-color: white; border: 1px solid red; padding: 4px; font-family: sans-serif\">\n"
           + "    Your web browser must have JavaScript enabled\n"
           + "    in order for this application to display correctly.\n"
           + "  </div>\n"
