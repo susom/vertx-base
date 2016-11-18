@@ -98,8 +98,14 @@ public class SamlAuthenticator implements Security {
         config.getStringOrThrow("saml.key.password"),
         config.getStringOrThrow("saml.idp.metadata")
     );
-    // TODO session lifetime should come from the security coordinator
-    samlCfg.setMaximumAuthenticationLifetime(3600);
+
+    // Optionally allow limiting the authentication lifetime. By default just
+    // go with whatever the IDP uses
+    int maxLifetime = config.getInteger("saml.max.lifetime.seconds", -1);
+    if (maxLifetime > 0) {
+      samlCfg.setMaximumAuthenticationLifetime(maxLifetime);
+    }
+
     samlCfg.setServiceProviderEntityId(config.getStringOrThrow("saml.sp.id"));
     samlCfg.setServiceProviderMetadataPath(new File(config.getStringOrThrow("saml.sp.metadata")).getAbsolutePath());
     samlCfg.setDestinationBindingType(SAMLConstants.SAML2_REDIRECT_BINDING_URI);
