@@ -74,6 +74,14 @@ public class StrictResourceHandler implements Handler<RoutingContext> {
     if (!dir.endsWith("/")) {
       dir = dir + "/";
     }
+    // We want to use classpath*: because that searches over entire classpath
+    // rather than allowing one directory to mask a later one
+    if (dir.startsWith("classpath:")) {
+      dir = dir.substring("classpath:".length());
+    }
+    if (!dir.startsWith("classpath*:")) {
+      dir = "classpath*:" + dir;
+    }
     if (!prefix.startsWith("/")) {
       prefix = "/" + prefix;
     }
