@@ -25,7 +25,6 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nonnull;
@@ -34,6 +33,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 
 import static io.netty.handler.codec.http.HttpResponseStatus.NOT_FOUND;
@@ -74,14 +74,6 @@ public class StrictResourceHandler implements Handler<RoutingContext> {
     if (!dir.endsWith("/")) {
       dir = dir + "/";
     }
-    // We want to use classpath*: because that searches over entire classpath
-    // rather than allowing one directory to mask a later one
-    if (dir.startsWith("classpath:")) {
-      dir = dir.substring("classpath:".length());
-    }
-    if (!dir.startsWith("classpath*:")) {
-      dir = "classpath*:" + dir;
-    }
     if (!prefix.startsWith("/")) {
       prefix = "/" + prefix;
     }
@@ -92,7 +84,9 @@ public class StrictResourceHandler implements Handler<RoutingContext> {
     try {
       ClassLoader cl = Thread.currentThread().getContextClassLoader();
       PathMatchingResourcePatternResolver resolver = new PathMatchingResourcePatternResolver(cl) {};
-      Resource[] resources = resolver.getResources(dir + pattern);
+      // We want to use classpath*: because that searches over the entire classpath
+      // rather than allowing one directory to mask a later one
+      Resource[] resources = resolver.getResources("classpath*:" + dir + pattern);
       if (resources != null) {
         for (Resource resource : resources) {
           if (resource.isReadable()) {
@@ -102,11 +96,13 @@ public class StrictResourceHandler implements Handler<RoutingContext> {
                 continue;
               }
               String servePath = prefix + resourcePath.substring(resourcePath.indexOf(dir) + dir.length());
+              if (pathToResource.containsKey(servePath)) {
+                log.trace("Skipping duplicate classpath resource {} ({})", servePath, resourcePath);
+                continue;
+              }
               // This copies the file into the .vertx cache directory to be served via sendFile()
               File file = vertx.resolveFile(resourcePath);
-              if (log.isTraceEnabled()) {
-                log.trace("Adding classpath resource " + servePath + " (" + resourcePath + ")");
-              }
+              log.trace("Adding classpath resource {} ({})", servePath, resourcePath);
               pathToResource.put(servePath, file);
             } else if (resource instanceof FileSystemResource) {
               File file = ((FileSystemResource) resource).getFile();
@@ -117,11 +113,32 @@ public class StrictResourceHandler implements Handler<RoutingContext> {
               // This isn't quite correct because it assumes the absolute path does
               // not contain dir, but I haven't figured out how to know the base yet
               String servePath = prefix + resourcePath.substring(resourcePath.indexOf("/" + dir) + 1).substring(dir.length());
-              if (log.isTraceEnabled()) {
-                log.trace("Adding file resource " + servePath + " (" + resourcePath + ")");
+              if (pathToResource.containsKey(servePath)) {
+                log.trace("Skipping duplicate file resource {} ({})", servePath, resourcePath);
+                continue;
               }
+              log.trace("Adding file resource {} ({})", servePath, resourcePath);
               pathToResource.put(servePath, file);
+            } else if (resource instanceof UrlResource) {
+              String fullPath = resource.getURL().getPath();
+              if (fullPath.endsWith("/")) {
+                continue;
+              }
+              String resourcePath = fullPath.substring(fullPath.indexOf(".jar!/") + 6);
+              String servePath = prefix + resourcePath.substring(resourcePath.indexOf(dir) + dir.length());
+              if (pathToResource.containsKey(servePath)) {
+                log.trace("Skipping duplicate classpath url resource {} ({})", servePath, resourcePath);
+                continue;
+              }
+              // This copies the file into the .vertx cache directory to be served via sendFile()
+              File file = vertx.resolveFile(resourcePath);
+              log.trace("Adding classpath url resource {} ({})", servePath, resourcePath);
+              pathToResource.put(servePath, file);
+            } else {
+              log.warn("Skipping resource because it is an unknown class ({}): {}", resource.getClass(), resource);
             }
+          } else {
+            log.trace("Skipping resource because it is not readable: {}", resource);
           }
         }
       }
