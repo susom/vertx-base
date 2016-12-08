@@ -49,20 +49,20 @@ public class Valid {
   }
 
   @Nonnull
-  public static Boolean isFalse(Boolean value,  String validationMessage) {
+  public static boolean isFalse(Boolean value,  String validationMessage) {
 
-    if (value != false) {
-      throw new BadRequest(validationMessage);
+    if ( value == null || value != false) {
+      throw new BadRequestException(validationMessage);
     }
 
     return true;
   }
 
   @Nonnull
-  public static Boolean isTrue(Boolean value,  String validationMessage) {
+  public static boolean isTrue(Boolean value,  String validationMessage) {
 
-    if (value != true) {
-      throw new BadRequest(validationMessage);
+    if (value == null || value != true) {
+      throw new BadRequestException(validationMessage);
     }
 
     return true;
@@ -71,8 +71,8 @@ public class Valid {
   @Nonnull
   public static void alphaSpaceMaxLength(String value, Integer maxLength, String validationMessage) {
 
-    if ((value.length() >  maxLength ) || !(StringUtils.isAlphaSpace(value))) {
-      throw new BadRequest(validationMessage);
+    if ((value == null) ||(value.length() >  maxLength ) || !(StringUtils.isAlphaSpace(value))) {
+      throw new BadRequestException(validationMessage);
     }
 
   }
@@ -80,7 +80,6 @@ public class Valid {
   @Nonnull
   public static String matchesReq(String value, Pattern requiredPattern, String validationMessage) {
     value = matchesOpt(value, requiredPattern, validationMessage);
-
     if (value == null) {
       throw new BadRequestException(validationMessage);
     }
