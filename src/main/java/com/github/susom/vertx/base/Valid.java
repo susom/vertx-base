@@ -20,6 +20,7 @@ import java.text.Normalizer.Form;
 import java.util.regex.Pattern;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import org.apache.commons.lang3.StringUtils;
 
 /**
  * Various useful validation functions.
@@ -48,9 +49,37 @@ public class Valid {
   }
 
   @Nonnull
+  public static boolean isFalse(Boolean value,  String validationMessage) {
+
+    if ( value == null || value != false) {
+      throw new BadRequestException(validationMessage);
+    }
+
+    return true;
+  }
+
+  @Nonnull
+  public static boolean isTrue(Boolean value,  String validationMessage) {
+
+    if (value == null || value != true) {
+      throw new BadRequestException(validationMessage);
+    }
+
+    return true;
+  }
+
+  @Nonnull
+  public static void alphaSpaceMaxLength(String value, Integer maxLength, String validationMessage) {
+
+    if ((value == null) ||(value.length() >  maxLength ) || !(StringUtils.isAlphaSpace(value))) {
+      throw new BadRequestException(validationMessage);
+    }
+
+  }
+
+  @Nonnull
   public static String matchesReq(String value, Pattern requiredPattern, String validationMessage) {
     value = matchesOpt(value, requiredPattern, validationMessage);
-
     if (value == null) {
       throw new BadRequestException(validationMessage);
     }
