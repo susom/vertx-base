@@ -334,6 +334,14 @@ public class VertxBase {
 
       response.setStatusCode(statusCode);
       String message = response.getStatusMessage();
+
+      // The default messages are misleading for these
+      if (statusCode == 401) {
+        message = "You need to login";
+      } else if (statusCode == 403) {
+        message = "You do not have permission";
+      }
+
       response.setStatusCode(statusCode).end(new JsonObject().put("error", message).encode());
     }
   }
