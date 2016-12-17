@@ -192,8 +192,7 @@ public class SamlAuthenticator implements Security {
             if (session.displayName == null) {
               session.displayName = session.username;
             }
-            // TODO session time hard-coded to 12 hours
-            session.expires = Instant.now().plus(12, ChronoUnit.HOURS);
+            session.expires = profile.getNotOnOrAfter().toDate().toInstant();
             AuthoritySet authoritySet = new AuthoritySet();
             authoritySet.actingUsername = session.username;
             authoritySet.actingDisplayName = session.displayName;
