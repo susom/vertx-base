@@ -14,42 +14,8 @@
  */
 package com.github.susom.vertx.base;
 
-import java.io.File;
-import java.security.SecureRandom;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.function.Function;
-
-import org.opensaml.saml.common.xml.SAMLConstants;
-import org.owasp.encoder.Encode;
-import org.pac4j.core.client.Clients;
-import org.pac4j.core.client.RedirectAction;
-import org.pac4j.core.client.RedirectAction.RedirectType;
-import org.pac4j.core.context.Pac4jConstants;
-import org.pac4j.core.engine.CallbackLogic;
-import org.pac4j.core.engine.DefaultCallbackLogic;
-import org.pac4j.core.exception.HttpAction;
-import org.pac4j.saml.client.SAML2Client;
-import org.pac4j.saml.client.SAML2ClientConfiguration;
-import org.pac4j.saml.profile.SAML2Profile;
-import org.pac4j.vertx.VertxWebContext;
-import org.pac4j.vertx.auth.Pac4jAuthProvider;
-import org.pac4j.vertx.handler.impl.SecurityHandler;
-import org.pac4j.vertx.handler.impl.SecurityHandlerOptions;
-import org.pac4j.vertx.http.DefaultHttpActionAdapter;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.slf4j.MDC;
-
 import com.github.susom.database.Config;
 import com.github.susom.database.Metric;
-
 import io.netty.handler.codec.http.cookie.Cookie;
 import io.netty.handler.codec.http.cookie.ServerCookieDecoder;
 import io.vertx.core.Handler;
@@ -59,6 +25,38 @@ import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.CookieHandler;
 import io.vertx.ext.web.impl.CookieImpl;
+import java.io.File;
+import java.nio.charset.Charset;
+import java.security.SecureRandom;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
+import org.opensaml.saml.common.xml.SAMLConstants;
+import org.owasp.encoder.Encode;
+import org.pac4j.core.client.Clients;
+import org.pac4j.core.client.RedirectAction;
+import org.pac4j.core.client.RedirectAction.RedirectType;
+import org.pac4j.core.context.Pac4jConstants;
+import org.pac4j.core.engine.CallbackLogic;
+import org.pac4j.core.engine.DefaultCallbackLogic;
+import org.pac4j.core.engine.DefaultSecurityLogic;
+import org.pac4j.core.exception.HttpAction;
+import org.pac4j.saml.client.SAML2Client;
+import org.pac4j.saml.client.SAML2ClientConfiguration;
+import org.pac4j.saml.profile.SAML2Profile;
+import org.pac4j.vertx.VertxProfileManager;
+import org.pac4j.vertx.VertxWebContext;
+import org.pac4j.vertx.handler.impl.SecurityHandlerOptions;
+import org.pac4j.vertx.http.DefaultHttpActionAdapter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 import static com.github.susom.vertx.base.VertxBase.absoluteContext;
 import static com.github.susom.vertx.base.VertxBase.executeBlocking;
@@ -89,7 +87,7 @@ public class SamlAuthenticator implements Security {
     this.vertx = vertx;
     this.root = root;
     this.secureRandom = secureRandom;
-    config = Config.from().custom(cfg::apply).get();
+    config = Config.from().custom(cfg).get();
     scheduleSessionReaper(vertx);
 
     final SAML2ClientConfiguration samlCfg = new SAML2ClientConfiguration(
@@ -113,7 +111,6 @@ public class SamlAuthenticator implements Security {
     Clients clients = new Clients(config.getStringOrThrow("public.url") + "/saml-callback", saml2Client);
     final org.pac4j.core.config.Config pac4jConfig = new org.pac4j.core.config.Config(clients);
     SecurityHandlerOptions options = new SecurityHandlerOptions().withClients("SAML2Client");
-    Pac4jAuthProvider authProvider = new Pac4jAuthProvider();
     // Make sure the client has been initialized properly (uses lazy init)
     clients.findClient("SAML2Client");
 
@@ -171,6 +168,17 @@ public class SamlAuthenticator implements Security {
 
         @Override
         public Object getSessionAttribute(String name) {
+          if (name.equals("pac4jRequestedUrl")) {
+            String relayState = rc.request().getParam("RelayState");
+            if (relayState == null) {
+              relayState = "";
+            } else {
+              relayState = new String(Base64.getDecoder().decode(relayState), Charset.forName("UTF-8"));
+            }
+            String url = absoluteContext(config::getString, rc) + relayState;
+            log.debug("Providing pac4jRequestedUrl as {}", url);
+            return url;
+          }
           log.debug("Returning null for session attribute {}", name);
           return null;
         }
@@ -180,7 +188,7 @@ public class SamlAuthenticator implements Security {
           if (name.equals(Pac4jConstants.USER_PROFILES) && value instanceof Map) {
             SAML2Profile profile = (SAML2Profile) ((Map) value).get("SAML2Client");
 
-            log.debug("User profile: " + profile); // TODO remove?
+            log.trace("User profile: {}", profile);
 
             String sessionToken = new TokenGenerator(secureRandom).create(64);
             InternalSession session = new InternalSession();
@@ -221,7 +229,7 @@ public class SamlAuthenticator implements Security {
       cookieHandler.handle(rc);
       executeBlocking(vertx, future -> {
         callbackLogic.perform(webContext, pac4jConfig, new DefaultHttpActionAdapter(),
-            absoluteContext(config::getString, rc) + "/", false, false);
+            null, false, false);
       }, after -> {
         if (after.failed()) {
           rc.fail(after.cause());
@@ -229,13 +237,54 @@ public class SamlAuthenticator implements Security {
       });
     };
 
-    SecurityHandler samlHandler = new SecurityHandler(vertx, pac4jConfig, authProvider, options);
     Handler<RoutingContext> mandatory = WebAppSessionAuthHandler.mandatory(sessions, true, rc -> {
-      samlHandler.handle(rc);
-      rc.response().setStatusCode(401).putHeader("WWW-Authenticate", "Redirect")
-          .end("401 Authentication Required");
+      DefaultSecurityLogic<Void, VertxWebContext> securityLogic = new DefaultSecurityLogic<>();
+      securityLogic.setProfileManagerFactory(VertxProfileManager::new);
+      VertxWebContext webContext = new VertxWebContext(rc) {
+        @Override
+        public Object getSessionAttribute(String name) {
+          if (name.equals("samlRelayState")) {
+            return relayStateForUri(rc);
+          }
+          log.debug("Returning null for session attribute {}", name);
+          return null;
+        }
+
+        @Override
+        public void setSessionAttribute(String name, Object value) {
+          log.debug("Ignoring set session attribute {}={}", name, value);
+        }
+
+        @Override
+        public void failResponse(int status) {
+          rc.response().setStatusCode(401).putHeader("WWW-Authenticate", "Redirect")
+              .end("401 Authentication Required");
+        }
+      };
+
+      executeBlocking(vertx, future -> {
+        try {
+          securityLogic.perform(webContext, pac4jConfig, (ctx, parameters) -> {
+                future.complete();
+                return null;
+              }, new DefaultHttpActionAdapter(), options.clients(), options.authorizers(),
+              options.matchers(), options.multiProfile());
+        } catch (Exception e) {
+          future.fail(e);
+        }
+      }, after -> {
+        if (after.succeeded()) {
+          log.trace("Allowing access", after.cause());
+          rc.next();
+        } else {
+          log.warn("Denying access", after.cause());
+          rc.response().setStatusCode(401).putHeader("WWW-Authenticate", "Redirect")
+              .end("401 Authentication Required");
+        }
+      });
     });
-    authenticateRequiredOrDeny = rc -> {
+
+  authenticateRequiredOrDeny = rc -> {
       if (rc.user() == null) {
         cookieHandler.handle(rc);
 
@@ -249,6 +298,9 @@ public class SamlAuthenticator implements Security {
       VertxWebContext webContext = new VertxWebContext(rc) {
         @Override
         public Object getSessionAttribute(String name) {
+          if (name.equals("samlRelayState")) {
+            return relayStateForUri(rc);
+          }
           log.debug("Returning null for session attribute {}", name);
           return null;
         }
@@ -267,7 +319,6 @@ public class SamlAuthenticator implements Security {
       }
 
       if (action.getType() == RedirectType.REDIRECT) {
-        // TODO look at using samlRelayState
         rc.response().setStatusCode(302).putHeader("location", action.getLocation()).end();
       } else {
         throw new RuntimeException("Not supporting 200 redirect");
@@ -325,6 +376,21 @@ public class SamlAuthenticator implements Security {
     root.post("/saml-callback").handler(callbackHandler);
   }
 
+  private String relayStateForUri(RoutingContext rc) {
+    String uri = rc.request().uri();
+    if (uri.endsWith("/login")) {
+      uri = uri.substring(0, uri.length() - 5);
+    }
+    if (uri.startsWith("/")) {
+      uri = uri.substring(1);
+    }
+    if (!uri.contains("/")) {
+      uri = uri + "/";
+    }
+    log.debug("Returning uri for samlRelayState: {}", uri);
+    return new String(Base64.getEncoder().encode(uri.getBytes(Charset.forName("UTF-8"))), Charset.forName("UTF-8"));
+  }
+
   private void scheduleSessionReaper(Vertx vertx) {
     vertx.setPeriodic(300000L, id -> {
       Metric metric = new Metric(log.isTraceEnabled());
@@ -367,6 +433,8 @@ public class SamlAuthenticator implements Security {
     // For SAML the client-side JS redirect doesn't know the URL of the IDP yet,
     // so it sends us back to a local /login url which will do the SAML redirect
     router.get("/login").handler(authenticateRequiredOrRedirect302);
+    // If they hit login and have already authenticated, send them back to the top
+    router.get("/login").handler(rc -> rc.response().setStatusCode(302).putHeader("Location", mountPoint + "/").end());
 
     // Lock down everything else to return 401 with WWW-Authenticate: Redirect <login>
     router.route().handler(authenticateRequiredOrDeny);
