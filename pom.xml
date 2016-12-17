@@ -76,12 +76,59 @@
     <dependency>
       <groupId>org.pac4j</groupId>
       <artifactId>vertx-pac4j</artifactId>
-      <version>2.1.0-SNAPSHOT</version>
+      <version>2.1.0</version>
+      <!-- Only using pac4j for SAML, so many transitive dependencies are not needed -->
+      <exclusions>
+        <exclusion>
+          <groupId>io.vertx</groupId>
+          <artifactId>vertx-rx-java</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.pac4j</groupId>
+          <artifactId>pac4j-oauth</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.pac4j</groupId>
+          <artifactId>pac4j-openid</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.pac4j</groupId>
+          <artifactId>pac4j-http</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.pac4j</groupId>
+          <artifactId>pac4j-oidc</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.pac4j</groupId>
+          <artifactId>pac4j-cas</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
     <dependency>
       <groupId>org.pac4j</groupId>
       <artifactId>pac4j-saml</artifactId>
       <version>1.9.4</version>
+      <exclusions>
+        <exclusion>
+          <groupId>net.shibboleth.ext</groupId>
+          <artifactId>spring-extensions</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>xalan</groupId>
+          <artifactId>xalan</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.apache.velocity</groupId>
+          <artifactId>velocity</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
+      <!-- Transitive dependency of pac4j-saml that we need -->
+      <groupId>commons-lang</groupId>
+      <artifactId>commons-lang</artifactId>
+      <version>2.4</version>
     </dependency>
 
     <dependency>
