@@ -176,10 +176,10 @@ public class SamlAuthenticator implements Security {
               relayState = new String(Base64.getDecoder().decode(relayState), Charset.forName("UTF-8"));
             }
             String url = absoluteContext(config::getString, rc) + relayState;
-            log.debug("Providing pac4jRequestedUrl as {}", url);
+            log.trace("Providing pac4jRequestedUrl as {}", url);
             return url;
           }
-          log.debug("Returning null for session attribute {}", name);
+          log.trace("Returning null for session attribute {}", name);
           return null;
         }
 
@@ -220,7 +220,7 @@ public class SamlAuthenticator implements Security {
                 .add(SET_COOKIE, sessionCookie.encode())
                 .add(SET_COOKIE, xsrfCookie.encode());
           } else {
-            log.debug("Ignoring set session attribute {}={}", name, value);
+            log.trace("Ignoring set session attribute {}={}", name, value);
           }
         }
       };
@@ -301,13 +301,13 @@ public class SamlAuthenticator implements Security {
           if (name.equals("samlRelayState")) {
             return relayStateForUri(rc);
           }
-          log.debug("Returning null for session attribute {}", name);
+          log.trace("Returning null for session attribute {}", name);
           return null;
         }
 
         @Override
         public void setSessionAttribute(String name, Object value) {
-          log.debug("Ignoring set session attribute {}={}", name, value);
+          log.trace("Ignoring set session attribute {}={}", name, value);
         }
       };
 
@@ -387,7 +387,7 @@ public class SamlAuthenticator implements Security {
     if (!uri.contains("/")) {
       uri = uri + "/";
     }
-    log.debug("Returning uri for samlRelayState: {}", uri);
+    log.trace("Returning uri for samlRelayState: {}", uri);
     return new String(Base64.getEncoder().encode(uri.getBytes(Charset.forName("UTF-8"))), Charset.forName("UTF-8"));
   }
 

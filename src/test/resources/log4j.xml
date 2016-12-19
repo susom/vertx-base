@@ -32,6 +32,9 @@
   <category name="com.github.susom.vertx.base.shaded">
     <priority value="WARN"/>
   </category>
+  <category name="shaded.com.github.susom.database">
+    <priority value="WARN"/>
+  </category>
   <category name="org.hsqldb">
     <priority value="WARN"/>
   </category>

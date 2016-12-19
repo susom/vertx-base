@@ -50,9 +50,20 @@ public class StrictResourceHandler implements Handler<RoutingContext> {
   private final Map<String, File> pathToResource = new HashMap<>();
   private final VertxInternal vertx;
   private String rootIndex = "index.html";
+  private boolean warnIfNotFound;
 
   public StrictResourceHandler(Vertx vertx) {
     this.vertx = (VertxInternal) vertx;
+  }
+
+  /**
+   * Emit a log entry at WARN level if the requested path cannot be found and we are
+   * falling through to the next handler. By default it will be logged at TRACE level.
+   */
+  @Nonnull
+  public StrictResourceHandler warnIfNotFound() {
+    warnIfNotFound = true;
+    return this;
   }
 
   @Nonnull
@@ -205,7 +216,7 @@ public class StrictResourceHandler implements Handler<RoutingContext> {
 
       String mountPoint = rc.mountPoint();
       if (mountPoint != null && path.startsWith(mountPoint)) {
-        log.debug("Stripping mount point from path: " + mountPoint);
+        log.trace("Stripping mount point from path: {}", mountPoint);
         path = path.substring(mountPoint.length());
       }
 
@@ -226,13 +237,16 @@ public class StrictResourceHandler implements Handler<RoutingContext> {
 
       File file = pathToResource.get(path);
       if (file == null) {
-        // TODO trace rather than warning
-        log.warn("Path not found: " + path + " so skipping this handler");
+        if (warnIfNotFound) {
+          log.warn("Path not found: " + path + " so skipping this handler");
+        } else {
+          log.trace("Path not found: {} so skipping this handler", path);
+        }
         rc.next();
         return;
       }
 
-      log.debug("Sending file: " + file.getAbsolutePath());
+      log.debug("Sending file: {}", file.getAbsolutePath());
 
       // Allow naming convention to control caching behavior
       if (path.contains(".nocache.")) {

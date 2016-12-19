@@ -126,8 +126,8 @@ public class SampleMain {
       // we want them to take precedence.
       sub.get("/*").handler(new StrictResourceHandler(vertx)
               .addDir("static/sample")
-              .addDir("static/assets", "**/*", "assets")
-              .rootIndex("sample.nocache.html"));
+              .rootIndex("sample.nocache.html")
+              .warnIfNotFound());
 
       // Add status pages per DCS standards (JSON returned from /status and /status/app)
       new DatabaseHealthCheck(vertx, db, config).addStatusHandlers(root);
@@ -136,7 +136,7 @@ public class SampleMain {
       vertx.createHttpServer().requestHandler(root::accept).listen(8888, "localhost", h -> {
         if (h.succeeded()) {
           int port = h.result().actualPort();
-          log.info("Started server on port " + port + ":\n    http://localhost:" + port + "/app/saml" );
+          log.info("Started server on port " + port + ":\n    http://localhost:" + port + "/app" );
         } else {
           log.error("Could not start server", h.cause());
         }
