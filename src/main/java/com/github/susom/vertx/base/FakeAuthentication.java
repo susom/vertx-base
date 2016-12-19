@@ -79,7 +79,7 @@ public class FakeAuthentication {
     // Serve static html and related resources for the login/logout client
     router.get("/*").handler(new StrictResourceHandler(vertx)
         .addDir("static/fake-authentication")
-        .addDir("static/assets", "**/*", "assets")
+        .addDir("static/assets-public", "**/*", "assets")
         .rename("login.nocache.html", "auth")
     );
   }

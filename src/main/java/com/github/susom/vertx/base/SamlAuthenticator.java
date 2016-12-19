@@ -421,6 +421,9 @@ public class SamlAuthenticator implements Security {
     router.route().handler(authenticateOptional);
     router.route().handler(new MetricsHandler(secureRandom, config.getBooleanOrFalse("insecure.log.full.requests")));
 
+    // Add public assets before authentication is required
+    router.get("/assets/*").handler(new StrictResourceHandler(vertx).addDir("static/assets-public", "**/*", "assets"));
+
     // Note the callback handler is added to the root context in the constructor above
 
     // TODO implement logout handler
@@ -438,6 +441,11 @@ public class SamlAuthenticator implements Security {
 
     // Lock down everything else to return 401 with WWW-Authenticate: Redirect <login>
     router.route().handler(authenticateRequiredOrDeny);
+
+    // Now layer in any assets that should be behind authentication (keep in mind
+    // things like source maps will not work for resources here because the browser
+    // does not pass session cookies or special headers)
+    router.get("/assets/*").handler(new StrictResourceHandler(vertx).addDir("static/assets-private", "**/*", "assets"));
 
     // Information for the client about whether we are logged in, how to login, etc.
     router.get("/login-status").handler(loginStatusHandler());
