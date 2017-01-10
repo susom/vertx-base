@@ -194,6 +194,8 @@ public class SamlAuthenticator implements Security {
             InternalSession session = new InternalSession();
             session.username = profileAttributeAsString(profile, "uid");
             if (session.username == null) {
+              log.warn("Unable to read username from profile using attributes {}: {}",
+                  Arrays.asList(attributeUsername), profile);
               throw new RuntimeException("Could not determine username from SAML response");
             }
             session.displayName = profileAttributeAsString(profile, "urn:oid:2.16.840.1.113730.3.1.241");
@@ -246,13 +248,13 @@ public class SamlAuthenticator implements Security {
           if (name.equals("samlRelayState")) {
             return relayStateForUri(rc);
           }
-          log.debug("Returning null for session attribute {}", name);
+          log.trace("Returning null for session attribute {}", name);
           return null;
         }
 
         @Override
         public void setSessionAttribute(String name, Object value) {
-          log.debug("Ignoring set session attribute {}={}", name, value);
+          log.trace("Ignoring set session attribute {}={}", name, value);
         }
 
         @Override
