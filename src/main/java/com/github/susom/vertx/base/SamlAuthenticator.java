@@ -30,6 +30,7 @@ import java.nio.charset.Charset;
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -76,6 +77,8 @@ public class SamlAuthenticator implements Security {
   private final Router root;
   private final SecureRandom secureRandom;
   private final Config config;
+  private final String[] attributeUsername;
+  private final String[] attributeDisplayName;
   private final Map<String, InternalSession> sessions = new HashMap<>();
   private CookieHandler cookieHandler;
   private Handler<RoutingContext> authenticateOptional;
@@ -88,6 +91,9 @@ public class SamlAuthenticator implements Security {
     this.root = root;
     this.secureRandom = secureRandom;
     config = Config.from().custom(cfg).get();
+    attributeUsername = config.getString("saml.attribute.username", "urn:mace:dir:attribute-def:uid,uid,urn:oid:1.3.6.1.4.1.5923.1.1.1.6").split(",");
+    attributeDisplayName = config.getString("saml.attribute.display.name", "urn:oid:2.16.840.1.113730.3.1.241,urn:mace:dir:attribute-def:displayName,displayName").split(",");
+
     scheduleSessionReaper(vertx);
 
     final SAML2ClientConfiguration samlCfg = new SAML2ClientConfiguration(
@@ -192,13 +198,13 @@ public class SamlAuthenticator implements Security {
 
             String sessionToken = new TokenGenerator(secureRandom).create(64);
             InternalSession session = new InternalSession();
-            session.username = profileAttributeAsString(profile, "uid");
+            session.username = profileAttributeAsString(profile, attributeUsername);
             if (session.username == null) {
               log.warn("Unable to read username from profile using attributes {}: {}",
                   Arrays.asList(attributeUsername), profile);
               throw new RuntimeException("Could not determine username from SAML response");
             }
-            session.displayName = profileAttributeAsString(profile, "urn:oid:2.16.840.1.113730.3.1.241");
+            session.displayName = profileAttributeAsString(profile, attributeDisplayName);
             if (session.displayName == null) {
               session.displayName = session.username;
             }
@@ -653,15 +659,20 @@ public class SamlAuthenticator implements Security {
     }
   }
 
-  private String profileAttributeAsString(SAML2Profile profile, String name) {
-    Object value = profile.getAttribute(name);
-    if (value == null) {
-      return null;
-    } else if (value instanceof List) {
-      List list = (List) value;
-      return list.size() > 0 ? list.get(0).toString() : null;
-    } else {
-      return value.toString();
+  private String profileAttributeAsString(SAML2Profile profile, String[] names) {
+    for (String name : names) {
+      Object value = profile.getAttribute(name);
+      if (value == null) {
+        continue;
+      }
+
+      if (value instanceof List) {
+        List list = (List) value;
+        return list.size() > 0 ? list.get(0).toString() : null;
+      } else {
+        return value.toString();
+      }
     }
+    return null;
   }
 }
