@@ -192,6 +192,7 @@ public class BasePolicy extends Policy {
       appPerms.add(new NetPermission("getNetworkInformation"));
       appPerms.add(new FilePermission("/proc/sys/net/core/somaxconn", "read"));
       appPerms.add(new FilePermission("/etc/hosts", "read"));
+      appPerms.add(new FilePermission("/etc/resolv.conf", "read"));
 
       return appPerms;
     }
