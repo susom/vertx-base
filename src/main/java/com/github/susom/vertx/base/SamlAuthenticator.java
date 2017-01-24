@@ -29,6 +29,7 @@ import java.io.File;
 import java.nio.charset.Charset;
 import java.security.SecureRandom;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
@@ -208,7 +209,7 @@ public class SamlAuthenticator implements Security {
             if (session.displayName == null) {
               session.displayName = session.username;
             }
-            session.expires = profile.getNotOnOrAfter().toDate().toInstant();
+            session.expires = Instant.now().plus(config.getInteger("saml.session.expiration.minutes", 720), ChronoUnit.MINUTES);
             AuthoritySet authoritySet = new AuthoritySet();
             authoritySet.actingUsername = session.username;
             authoritySet.actingDisplayName = session.displayName;
