@@ -102,7 +102,7 @@ public class MetricsHandler implements Handler<RoutingContext> {
         for (String header : headersToLog) {
           String headerValue = rc.request().getHeader(header);
           if (headerValue != null) {
-            message.append("\n    ").append(header).append(headerValue);
+            message.append("\n    ").append(header).append(": ").append(headerValue);
           }
         }
       }
