@@ -428,7 +428,14 @@ public class SamlAuthenticator implements Security {
     // Optimistically pick up logged in user here so logging and metrics will
     // be correctly attributed whenever possible.
     router.route().handler(authenticateOptional);
-    router.route().handler(new MetricsHandler(secureRandom, config.getBooleanOrFalse("insecure.log.full.requests")));
+    MetricsHandler metrics = new MetricsHandler(secureRandom, config.getBooleanOrFalse("insecure.log.full.requests"));
+    if (config.getBooleanOrFalse("saml.log.forwarded.ip")) {
+      metrics.logXForwardedFor();
+    }
+    if (config.getBooleanOrFalse("saml.log.user.agent")) {
+      metrics.logUserAgent();
+    }
+    router.route().handler(metrics);
 
     // Add public assets before authentication is required
     router.get("/assets/*").handler(new StrictResourceHandler(vertx).addDir("static/assets-public", "**/*", "assets"));
