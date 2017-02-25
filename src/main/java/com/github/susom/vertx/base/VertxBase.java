@@ -309,6 +309,16 @@ public class VertxBase {
     };
   }
 
+  public static Handler<AsyncResult<JsonObject>> sendJsonPretty(RoutingContext rc) {
+    return r -> {
+      if (r.succeeded() && r.result() != null) {
+        rc.response().putHeader("content-type", "application/json").end(r.result().encodePrettily() + '\n');
+      } else {
+        jsonApiFail(rc, r.cause());
+      }
+    };
+  }
+
   public static void jsonApiFail(RoutingContext rc) {
     jsonApiFail(rc, rc.failure());
   }
@@ -318,13 +328,13 @@ public class VertxBase {
 
     if (isOrCausedBy(t, BadRequestException.class)) {
       log.debug("Validation error", t);
-      response.setStatusCode(400).end(new JsonObject().put("error", t.getMessage()).encode() + '\n');
+      response.setStatusCode(400).putHeader("content-type", "application/json").end(new JsonObject().put("error", t.getMessage()).encode() + '\n');
     } else if (isOrCausedBy(t, AuthenticationException.class)) {
       log.warn("Authentication error", t);
-      response.setStatusCode(401).end(new JsonObject().put("error", t.getMessage()).encode() + '\n');
+      response.setStatusCode(401).putHeader("content-type", "application/json").end(new JsonObject().put("error", t.getMessage()).encode() + '\n');
     } else if (isOrCausedBy(t, AuthorizationException.class)) {
       log.warn("Authorization error", t);
-      response.setStatusCode(403).end(new JsonObject().put("error", t.getMessage()).encode() + '\n');
+      response.setStatusCode(403).putHeader("content-type", "application/json").end(new JsonObject().put("error", t.getMessage()).encode() + '\n');
     } else {
       int statusCode = rc.statusCode();
       log.error("Unexpected error {}", statusCode, t);
@@ -342,7 +352,7 @@ public class VertxBase {
         message = "You do not have permission";
       }
 
-      response.setStatusCode(statusCode).end(new JsonObject().put("error", message).encode() + '\n');
+      response.setStatusCode(statusCode).putHeader("content-type", "application/json").end(new JsonObject().put("error", message).encode() + '\n');
     }
   }
 
