@@ -71,8 +71,10 @@ public class MetricsHandler implements Handler<RoutingContext> {
    * handler sitting in front of this one (e.g. for authentication), and
    * you want to make sure the metrics object is available and starts its
    * timer before you do anything.
+   *
+   * @deprecated use checkpoint() instead because Metric is shaded by this library
    */
-  @Nonnull
+  @Nonnull @Deprecated
   public static Metric metricFor(@Nonnull RoutingContext rc) {
     Metric metric = rc.get("metric");
     if (metric == null) {
@@ -80,6 +82,15 @@ public class MetricsHandler implements Handler<RoutingContext> {
       rc.put("metric", metric);
     }
     return metric;
+  }
+
+  public static void checkpoint(@Nonnull RoutingContext rc, String label) {
+    Metric metric = rc.get("metric");
+    if (metric == null) {
+      metric = new Metric(log.isDebugEnabled());
+      rc.put("metric", metric);
+    }
+    metric.checkpoint(label);
   }
 
   public void handle(RoutingContext rc) {
