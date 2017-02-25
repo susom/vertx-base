@@ -54,7 +54,7 @@ public class SampleMain {
           // For serving our content
           new SocketPermission("*:8888", "listen,resolve"),
           // For connecting to the fake security server (embedded)
-          new SocketPermission("localhost:8080", "connect,resolve"),
+          new SocketPermission("localhost:8888", "connect,resolve"),
           // These two are for hsqldb to store its database files
           new FilePermission(workDir() + "/target", "read,write,delete"),
           new FilePermission(workDir() + "/target/-", "read,write,delete"),
@@ -74,7 +74,7 @@ public class SampleMain {
           .value("database.password", "")
           .value("listen.url", "http://localhost:8888")
           .value("public.url", "http://localhost:8888")
-//          .value("insecure.fake.security", "yes")
+          .value("insecure.fake.security", "yes")
           .value("insecure.log.full.requests", "yes")
           .value("security.authenticator", "saml")
           .value("saml.keystore.path", "conf/saml-keystore.jks")
