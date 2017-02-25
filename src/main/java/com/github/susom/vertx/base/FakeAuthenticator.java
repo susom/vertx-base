@@ -62,6 +62,7 @@ public class FakeAuthenticator implements Security {
   private static final Logger log = LoggerFactory.getLogger(FakeAuthenticator.class);
   private static final Pattern VALID_AUTH_CODE = Pattern.compile("[\\.a-zA-Z0-9_/-]*");
   private static final String DEFAULT_AUTHORITY_SET = "self";
+  private final Set<String> staticAuthorities = new HashSet<>();
   private final CookieHandler cookieHandler;
   private final Handler<RoutingContext> authenticateOptional;
   private final Handler<RoutingContext> authenticateRequiredOrDeny;
@@ -98,7 +99,7 @@ public class FakeAuthenticator implements Security {
     scope = config.getString("auth.client.scope", "openid");
 
     Router router = Router.router(vertx);
-    new FakeAuthentication(secureRandom, clientId, clientSecret, absoluteRoot).configureRouter(vertx, router);
+    new FakeAuthentication(secureRandom, clientId, clientSecret, absoluteRoot, staticAuthorities).configureRouter(vertx, router);
     root.mountSubRouter("/fake-authentication", router);
 
     if (httpClient == null) {
@@ -303,6 +304,7 @@ public class FakeAuthenticator implements Security {
 
   @Override
   public Handler<RoutingContext> requireAuthority(String authority) {
+    staticAuthorities.add(authority);
     return rc -> {
       AuthenticatedUser user = AuthenticatedUser.from(rc);
       if (user == null) {

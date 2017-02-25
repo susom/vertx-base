@@ -46,19 +46,24 @@ public class FakeAuthentication {
   private final String clientId;
   private final String clientSecret;
   private final String redirectUriPrefix;
+  private final Set<String> staticAuthorities;
   private final Map<String, Auth> codeToAuth = new HashMap<>();
 
-  public FakeAuthentication(SecureRandom secureRandom, String clientId, String clientSecret, String redirectUriPrefix) {
+  public FakeAuthentication(SecureRandom secureRandom, String clientId, String clientSecret, String redirectUriPrefix, Set<String> staticAuthorities) {
     this.secureRandom = secureRandom;
     this.clientId = clientId;
     this.clientSecret = clientSecret;
     this.redirectUriPrefix = redirectUriPrefix;
+    this.staticAuthorities = staticAuthorities;
   }
 
   public void configureRouter(Vertx vertx, Router router) {
     StrictBodyHandler smallBodyHandler = new StrictBodyHandler(4000);
 
     router.route().handler(new MetricsHandler(secureRandom));
+
+    // Send a list of the static authorities we know about, so user can see them and pick from a list
+    router.get("/authorities").handler(this::sendAuthorities).failureHandler(VertxBase::jsonApiFail);
 
     // Static login page sends us the username here
     router.post("/authenticate").handler(smallBodyHandler);
@@ -82,6 +87,11 @@ public class FakeAuthentication {
         .addDir("static/assets-public", "**/*", "assets")
         .rename("login.nocache.html", "auth")
     );
+  }
+
+  private void sendAuthorities(RoutingContext rc) {
+    rc.response().putHeader("content-type", "application/json").end(new JsonObject()
+        .put("authorities", staticAuthorities.stream().sorted().collect(Collectors.toList())).encodePrettily() + '\n');
   }
 
   private void logout(RoutingContext rc) {
