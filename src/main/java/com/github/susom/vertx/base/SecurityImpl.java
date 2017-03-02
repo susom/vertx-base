@@ -47,16 +47,34 @@ public class SecurityImpl implements Security {
       delegate = new SamlAuthenticator(vertx, root, secureRandom, cfg);
     } else if (config.getString("security.authenticator", "saml").equals("oidc-keycloak")) {
       delegate = new OidcKeycloakAuthenticator(vertx, root, secureRandom, cfg);
+    } else if (config.getString("security.authenticator", "saml").equals("custom")) {
+      delegate = new CustomAuthenticator();
     } else {
-      throw new ConfigInvalidException("Set security.authenticator=[saml|oidc-keycloak]");
+      throw new ConfigInvalidException("Set security.authenticator=[saml|oidc-keycloak|custom]");
     }
   }
 
+  /**
+   * Use this method to place web applications (browser-based) behind user
+   * authentication.
+   *
+   * @param mountPoint path relative to the root router passed in the constructor
+   * @return a secured router (authenticated, but no authorization checks)
+   */
   @Override
   public Router authenticatedRouter(String mountPoint) {
     return delegate.authenticatedRouter(mountPoint);
   }
 
+  /**
+   * Create a handler that enforces an authorization check. The request
+   * must already have been authenticated, or a 401 will be returned. If
+   * authentication has occurred, but the specified authority has not
+   * been granted, a 403 will be returned.
+   *
+   * @param authority what the authenticated subject is required to have been granted
+   * @return a handler to place in front of the protected resources
+   */
   @Override
   public Handler<RoutingContext> requireAuthority(String authority) {
     return delegate.requireAuthority(authority);
