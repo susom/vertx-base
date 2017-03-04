@@ -84,8 +84,6 @@ public class WebAppJwtAuthHandler implements Handler<RoutingContext> {
     } else {
       MDC.remove("userId");
 
-      Metric metric = MetricsHandler.metricFor(rc);
-
       String windowId = rc.request().getHeader("X-WINDOW-ID");
       if (windowId != null && windowId.matches("[a-zA-Z0-9]{1,32}")) {
         MDC.put("windowId", windowId);
@@ -121,14 +119,14 @@ public class WebAppJwtAuthHandler implements Handler<RoutingContext> {
       if (session != null && session.getValue() != null) {
         jwt.authenticate(new JsonObject().put("jwt", session.getValue()), r -> {
           if (r.succeeded()) {
-            metric.checkpoint("auth");
+            MetricsHandler.checkpoint(rc, "auth");
             String userId = r.result().principal().getString("sub");
             String displayName = r.result().principal().getString("name");
             new AuthenticatedUser(userId, userId, displayName, new HashSet<>()).store(rc);
             MDC.put("userId", userId);
             rc.next();
           } else {
-            metric.checkpoint("authFail");
+            MetricsHandler.checkpoint(rc, "authFail");
             rc.response().headers().add(SET_COOKIE, session.setValue("").setMaxAge(0).encode());
             if (mandatory) {
               log.debug("Access token could not be authenticated", r.cause());
@@ -143,7 +141,7 @@ public class WebAppJwtAuthHandler implements Handler<RoutingContext> {
           }
         });
       } else {
-        metric.checkpoint("noAuth");
+        MetricsHandler.checkpoint(rc, "noAuth");
         if (mandatory) {
           if (redirecter == null) {
             rc.response().setStatusCode(401).end("No access_token cookie");

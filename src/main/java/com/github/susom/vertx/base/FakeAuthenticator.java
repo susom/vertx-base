@@ -549,8 +549,6 @@ public class FakeAuthenticator implements Security {
       } else {
         MDC.remove("userId");
 
-        Metric metric = MetricsHandler.metricFor(rc);
-
         String windowId = rc.request().getHeader("X-WINDOW-ID");
         if (windowId != null && windowId.matches("[a-zA-Z0-9]{1,32}")) {
           MDC.put("windowId", windowId);
@@ -587,13 +585,13 @@ public class FakeAuthenticator implements Security {
           Session session = sessions.get(sessionCookie.getValue());
           // TODO handle case where session is not in our cache and we need to get it from the coordinator
           if (session != null && session.revoked == null && session.expires.isAfter(Instant.now())) {
-            metric.checkpoint("auth");
+            MetricsHandler.checkpoint(rc, "auth");
             new AuthenticatedUser(session.username, session.username, session.displayName,
                 session.authoritySets.get(DEFAULT_AUTHORITY_SET).staticAuthority).store(rc);
             MDC.put("userId", session.username);
             rc.next();
           } else {
-            metric.checkpoint("authFail");
+            MetricsHandler.checkpoint(rc, "authFail");
             rc.response().headers().add(SET_COOKIE, sessionCookie.setValue("").setMaxAge(0).encode());
             if (mandatory) {
               if (log.isTraceEnabled()) {
@@ -613,7 +611,7 @@ public class FakeAuthenticator implements Security {
             }
           }
         } else {
-          metric.checkpoint("noAuth");
+          MetricsHandler.checkpoint(rc, "noAuth");
           if (mandatory) {
             if (redirecter == null) {
               rc.response().setStatusCode(401).end("No session_token cookie");
