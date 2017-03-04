@@ -81,11 +81,12 @@ public class SamlAuthenticator implements Security {
   private final String[] attributeUsername;
   private final String[] attributeDisplayName;
   private final Map<String, InternalSession> sessions = new HashMap<>();
-  private CookieHandler cookieHandler;
-  private Handler<RoutingContext> authenticateOptional;
-  private Handler<RoutingContext> authenticateRequiredOrDeny;
-  private Handler<RoutingContext> authenticateRequiredOrRedirect302;
-  private Handler<RoutingContext> authenticateRequiredOrRedirectJs;
+  private final CookieHandler cookieHandler;
+  private final Handler<RoutingContext> authenticateOptional;
+  private final Handler<RoutingContext> authenticateRequiredOrDeny;
+  private final Handler<RoutingContext> authenticateRequiredOrRedirect302;
+  private final Handler<RoutingContext> authenticateRequiredOrRedirectJs;
+  private final MetricsHandler metricsHandler;
 
   public SamlAuthenticator(Vertx vertx, Router root, SecureRandom secureRandom, Function<String, String> cfg) throws Exception {
     this.vertx = vertx;
@@ -379,8 +380,15 @@ public class SamlAuthenticator implements Security {
     // Authentication callback and logout have to be accessible without authenticating
     // Add the callback at the root level because we share one authentication context
     // between the various sub-routers
+    metricsHandler = new MetricsHandler(secureRandom, config.getBooleanOrFalse("insecure.log.full.requests"));
+    if (config.getBooleanOrFalse("saml.log.forwarded.ip")) {
+      metricsHandler.logXForwardedFor();
+    }
+    if (config.getBooleanOrFalse("saml.log.user.agent")) {
+      metricsHandler.logUserAgent();
+    }
     root.post("/saml-callback").handler(authenticateOptional);
-    root.post("/saml-callback").handler(new MetricsHandler(secureRandom, config.getBooleanOrFalse("insecure.log.full.requests")));
+    root.post("/saml-callback").handler(metricsHandler);
     root.post("/saml-callback").handler(new StrictBodyHandler(config.getInteger("saml.callback.limit.bytes", 256000)).multipartMergeForm());
     root.post("/saml-callback").handler(callbackHandler);
   }
@@ -428,14 +436,7 @@ public class SamlAuthenticator implements Security {
     // Optimistically pick up logged in user here so logging and metrics will
     // be correctly attributed whenever possible.
     router.route().handler(authenticateOptional);
-    MetricsHandler metrics = new MetricsHandler(secureRandom, config.getBooleanOrFalse("insecure.log.full.requests"));
-    if (config.getBooleanOrFalse("saml.log.forwarded.ip")) {
-      metrics.logXForwardedFor();
-    }
-    if (config.getBooleanOrFalse("saml.log.user.agent")) {
-      metrics.logUserAgent();
-    }
-    router.route().handler(metrics);
+    router.route().handler(metricsHandler);
 
     // Add public assets before authentication is required
     router.get("/assets/*").handler(new StrictResourceHandler(vertx).addDir("static/assets-public", "**/*", "assets"));
