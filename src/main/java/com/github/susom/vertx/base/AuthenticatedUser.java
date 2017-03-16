@@ -24,6 +24,7 @@ import io.vertx.ext.auth.AuthProvider;
 import io.vertx.ext.auth.User;
 import io.vertx.ext.web.RoutingContext;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Represent a user that has been properly authenticated.
@@ -70,7 +71,6 @@ public class AuthenticatedUser extends AbstractUser {
     if (authority.contains(permission)) {
       resultHandler.handle(Future.succeededFuture(true));
     } else {
-      // TODO seems maybe this should be fail
       resultHandler.handle(Future.succeededFuture(false));
     }
   }
@@ -80,7 +80,8 @@ public class AuthenticatedUser extends AbstractUser {
     return new JsonObject()
         .put("sub", authenticatedAs)
         .put("forsub", actingAs)
-        .put("name", fullDisplayName);
+        .put("name", fullDisplayName)
+        .put("authority", authority.stream().sorted().collect(Collectors.toList()));
   }
 
   @Override

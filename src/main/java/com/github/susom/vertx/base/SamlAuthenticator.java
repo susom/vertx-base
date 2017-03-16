@@ -80,6 +80,7 @@ public class SamlAuthenticator implements Security {
   private final Config config;
   private final String[] attributeUsername;
   private final String[] attributeDisplayName;
+  private final String[] attributeAuthority;
   private final Map<String, InternalSession> sessions = new HashMap<>();
   private final CookieHandler cookieHandler;
   private final Handler<RoutingContext> authenticateOptional;
@@ -95,6 +96,7 @@ public class SamlAuthenticator implements Security {
     config = Config.from().custom(cfg).get();
     attributeUsername = config.getString("saml.attribute.username", "urn:mace:dir:attribute-def:uid,uid,urn:oid:1.3.6.1.4.1.5923.1.1.1.6").split(",");
     attributeDisplayName = config.getString("saml.attribute.display.name", "urn:oid:2.16.840.1.113730.3.1.241,urn:mace:dir:attribute-def:displayName,displayName").split(",");
+    attributeAuthority = config.getString("saml.attribute.authority", "eduPersonEntitlement,urn:oid:1.3.6.1.4.1.5923.1.1.1.7").split(",");
 
     scheduleSessionReaper(vertx);
 
@@ -215,7 +217,11 @@ public class SamlAuthenticator implements Security {
             authoritySet.actingUsername = session.username;
             authoritySet.actingDisplayName = session.displayName;
             authoritySet.combinedDisplayName = session.displayName;
-            authoritySet.staticAuthority.addAll(profile.getPermissions());
+
+            String authorityCsv = profileAttributeAsString(profile, attributeAuthority);
+            if (authorityCsv != null) {
+              authoritySet.staticAuthority.addAll(Arrays.asList(authorityCsv.split(",")));
+            }
             session.authoritySets.put(DEFAULT_AUTHORITY_SET, authoritySet);
             sessions.put(sessionToken, session);
 
