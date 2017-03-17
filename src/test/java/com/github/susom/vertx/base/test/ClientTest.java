@@ -21,6 +21,8 @@ import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
 /**
@@ -30,6 +32,8 @@ import org.slf4j.MDC;
  */
 @RunWith(VertxUnitRunner.class)
 public class ClientTest {
+  private static final Logger log = LoggerFactory.getLogger(ClientTest.class);
+
   /**
    * Make sure we can use the HttpClient in a way that preserves MDC context.
    */
@@ -41,9 +45,12 @@ public class ClientTest {
     vertx.createHttpServer().requestHandler(r -> r.response().end("Hello"))
         .listen(8101, server -> {
           MDC.put("foo", "bar");
+          log.debug("Server up: {}", Vertx.currentContext());
           vertx.createHttpClient().get(8101, "localhost", "/foo").handler(VertxBase.mdc(response -> {
+            log.debug("Client got response: {}", Vertx.currentContext());
             context.assertEquals("bar", MDC.get("foo"));
             response.bodyHandler(VertxBase.mdc(body -> {
+              log.debug("Client got body: {}", Vertx.currentContext());
               context.assertEquals("bar", MDC.get("foo"));
               vertx.close(closed -> async.complete());
             }));
