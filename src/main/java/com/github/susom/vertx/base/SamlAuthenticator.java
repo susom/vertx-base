@@ -217,11 +217,7 @@ public class SamlAuthenticator implements Security {
             authoritySet.actingUsername = session.username;
             authoritySet.actingDisplayName = session.displayName;
             authoritySet.combinedDisplayName = session.displayName;
-
-            String authorityCsv = profileAttributeAsString(profile, attributeAuthority);
-            if (authorityCsv != null) {
-              authoritySet.staticAuthority.addAll(Arrays.asList(authorityCsv.split(",")));
-            }
+            authoritySet.staticAuthority.addAll(profileAttributeAsList(profile, attributeAuthority));
             session.authoritySets.put(DEFAULT_AUTHORITY_SET, authoritySet);
             sessions.put(sessionToken, session);
 
@@ -687,5 +683,26 @@ public class SamlAuthenticator implements Security {
       }
     }
     return null;
+  }
+
+  private List<String> profileAttributeAsList(SAML2Profile profile, String[] names) {
+    for (String name : names) {
+      Object value = profile.getAttribute(name);
+      if (value == null) {
+        continue;
+      }
+
+      if (value instanceof List) {
+        List list = (List) value;
+        List<String> result = new ArrayList<>();
+        for (Object o : list) {
+          result.add(list.get(0).toString());
+        }
+        return result;
+      } else {
+        log.warn("Skipping attribute {}: expected List but got {}", name, value.getClass().getName());
+      }
+    }
+    return new ArrayList<>();
   }
 }
