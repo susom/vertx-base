@@ -696,7 +696,7 @@ public class SamlAuthenticator implements Security {
         List list = (List) value;
         List<String> result = new ArrayList<>();
         for (Object o : list) {
-          result.add(list.get(0).toString());
+          result.add(o.toString());
         }
         return result;
       } else {
