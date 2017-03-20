@@ -217,7 +217,7 @@ public class SamlAuthenticator implements Security {
             authoritySet.actingUsername = session.username;
             authoritySet.actingDisplayName = session.displayName;
             authoritySet.combinedDisplayName = session.displayName;
-            authoritySet.staticAuthority.addAll(profileAttributeAsList(profile, attributeAuthority));
+            authoritySet.staticAuthority.addAll(readAuthorityAsList(profile, attributeAuthority));
             session.authoritySets.put(DEFAULT_AUTHORITY_SET, authoritySet);
             sessions.put(sessionToken, session);
 
@@ -685,8 +685,23 @@ public class SamlAuthenticator implements Security {
     return null;
   }
 
-  private List<String> profileAttributeAsList(SAML2Profile profile, String[] names) {
+  /**
+   * Read user authority from one or more of a specified set of SAML attributes, optionally
+   * doing some filtering and substitution based on prefixes.
+   *
+   * @param profile contains the SAML attributes we want to use
+   * @param names a precedence ordered list of attributes (first attribute present will be
+   *              used, rest will be ignored), with optional prefix inclusion/substitution
+   *              pattern (e.g. "attr1,attr2(prefixToInclude,anotherToInclude),attr3(prefixToReplace->withThis)")
+   * @return a list of authorities the user should be granted
+   */
+  public static List<String> readAuthorityAsList(SAML2Profile profile, String[] names) {
     for (String name : names) {
+      String[] prefixes = new String[0];
+      if (name.indexOf('(') > 0 && name.indexOf('(') < name.indexOf(')')) {
+        prefixes = name.substring(name.indexOf('(') + 1, name.indexOf(')')).split(",");
+        name = name.substring(0, name.indexOf('('));
+      }
       Object value = profile.getAttribute(name);
       if (value == null) {
         continue;
@@ -696,7 +711,25 @@ public class SamlAuthenticator implements Security {
         List list = (List) value;
         List<String> result = new ArrayList<>();
         for (Object o : list) {
-          result.add(o.toString());
+          String authority = o.toString();
+          if (prefixes.length == 0) {
+            result.add(authority);
+          } else {
+            for (String prefix : prefixes) {
+              if (prefix.contains("->")) {
+                String oldPrefix = prefix.substring(0, prefix.indexOf("->"));
+                String newPrefix = prefix.substring(prefix.indexOf("->") + 2);
+
+                if (authority.startsWith(oldPrefix)) {
+                  result.add(newPrefix + authority.substring(oldPrefix.length()));
+                }
+              } else {
+                if (authority.startsWith(prefix)) {
+                  result.add(authority);
+                }
+              }
+            }
+          }
         }
         return result;
       } else {
