@@ -25,6 +25,8 @@ import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Provide standard security services for protecting applications.
@@ -32,6 +34,7 @@ import io.vertx.ext.web.RoutingContext;
  * @author garricko
  */
 public class SecurityImpl implements Security {
+  private static final Logger log = LoggerFactory.getLogger(SecurityImpl.class);
   private Security delegate;
 
   public SecurityImpl(Vertx vertx, Router root, SecureRandom secureRandom, Function<String, String> cfg)
@@ -39,18 +42,31 @@ public class SecurityImpl implements Security {
 
     // TODO connect to security coordinator and dynamically determine security providers and policies
 
-    Config config = Config.from().custom(cfg::apply).get();
+    Config config = Config.from().custom(cfg).get();
 
     if (config.getBooleanOrFalse("insecure.fake.security")) {
       delegate = new FakeAuthenticator(vertx, root, secureRandom, cfg);
-    } else if (config.getString("security.authenticator", "saml").equals("saml")) {
-      delegate = new SamlAuthenticator(vertx, root, secureRandom, cfg);
-    } else if (config.getString("security.authenticator", "saml").equals("oidc-keycloak")) {
-      delegate = new OidcKeycloakAuthenticator(vertx, root, secureRandom, cfg);
-    } else if (config.getString("security.authenticator", "saml").equals("custom")) {
-      delegate = new CustomAuthenticator();
     } else {
-      throw new ConfigInvalidException("Set security.authenticator=[saml|oidc-keycloak|custom]");
+      String authenticator = config.getString("security.authenticator");
+
+      if (authenticator == null) {
+        log.warn("You should set property security.authenticator=[saml|oidc-keycloak|custom] - defaulting to saml");
+        authenticator = "saml";
+      }
+
+      switch (authenticator) {
+      case "saml":
+        delegate = new SamlAuthenticator(vertx, root, secureRandom, cfg);
+        break;
+      case "oidc-keycloak":
+        delegate = new OidcKeycloakAuthenticator(vertx, root, secureRandom, cfg);
+        break;
+      case "custom":
+        delegate = new CustomAuthenticator();
+        break;
+      default:
+        throw new ConfigInvalidException("Set security.authenticator=[saml|oidc-keycloak|custom] - was: " + authenticator);
+      }
     }
   }
 
