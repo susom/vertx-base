@@ -2,8 +2,20 @@
 
 [![Build Status](https://travis-ci.org/susom/vertx-base.svg?branch=master)](https://travis-ci.org/susom/vertx-base)
 
-This project provides common functionality for writing Vert.x applications in
-accordance with our internally defined best practices. It attempts to isolate
-the application developer from keeping up with the latest library versions,
-security updates, etc. and provides a toolkit for how to use Vert.x in a safe
-manner.
+This project provides common functionality for writing Vert.x applications
+in a safe and maintainable way. There is a template project available that
+shows how to use this library:
+
+https://github.com/susom/vertx-template
+
+### Getting Started
+
+The library is available in the public Maven repository:
+
+```
+<dependency>
+  <groupId>com.github.susom</groupId>
+  <artifactId>vertx-base</artifactId>
+  <version>1.0</version>
+</dependency>
+```
