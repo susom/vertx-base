@@ -42,7 +42,7 @@ import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.HttpClientOptions;
 import io.vertx.core.json.JsonObject;
-import io.vertx.ext.auth.jwt.impl.JWT;
+import io.vertx.ext.jwt.JWT;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.CookieHandler;
@@ -391,7 +391,7 @@ public class OidcKeycloakAuthenticator implements Security {
               log.warn("Response from token end point: " + json.encodePrettily()); // TODO remove
 
               String sessionToken = new TokenGenerator(secureRandom).create(64);
-              JWT decoder = new JWT(publicKey);
+              JWT decoder = new JWT(publicKey, false);
               JsonObject id = decoder.decode(json.getString("id_token"));
               // TODO need to verify issuer, audience, etc. per spec
 
