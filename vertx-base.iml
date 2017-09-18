@@ -41,7 +41,7 @@
     <orderEntry type="library" scope="TEST" name="Gradle: junit:junit:4.12" level="project" />
     <orderEntry type="library" scope="TEST" name="Gradle: org.mockito:mockito-all:1.10.8" level="project" />
     <orderEntry type="library" scope="TEST" name="Gradle: io.vertx:vertx-unit:3.2.1" level="project" />
-    <orderEntry type="library" name="Maven: com.github.susom:database:2.3" level="project" />
+    <orderEntry type="library" name="Maven: com.github.susom:database:2.4" level="project" />
     <orderEntry type="library" name="Maven: javax.inject:javax.inject:1" level="project" />
     <orderEntry type="library" name="Maven: com.google.code.findbugs:jsr305:2.0.3" level="project" />
     <orderEntry type="library" name="Maven: org.slf4j:slf4j-api:1.7.5" level="project" />
