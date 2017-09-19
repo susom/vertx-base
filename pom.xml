@@ -357,6 +357,16 @@
 
     <profile>
       <id>packagecloud</id>
+      <repositories>
+        <repository>
+          <id>packagecloud</id>
+          <url>https://packagecloud.io/garricko/travis/maven2</url>
+          <snapshots>
+            <enabled>true</enabled>
+            <updatePolicy>always</updatePolicy>
+          </snapshots>
+        </repository>
+      </repositories>
       <distributionManagement>
         <snapshotRepository>
           <id>packagecloud</id>

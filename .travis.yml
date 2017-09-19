@@ -1,6 +1,8 @@
 language: java
 jdk:
   - oraclejdk8
+# Skip the default mvn command because we want to set the profile explicitly
+install: true
 script:
   - cp .travis.settings.xml $HOME/.m2/settings.xml && mvn -e -Ppackagecloud test deploy
 after_failure:
