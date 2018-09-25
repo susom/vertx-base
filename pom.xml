@@ -12,7 +12,7 @@
   <url>https://github.com/susom/vertx-base</url>
 
   <properties>
-    <vertx.version>3.4.2</vertx.version>
+    <vertx.version>3.5.3</vertx.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
   </properties>
@@ -160,6 +160,11 @@
       <artifactId>database-goodies</artifactId>
       <version>1.0</version>
       <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.bouncycastle</groupId>
+      <artifactId>bcprov-jdk15on</artifactId>
+      <version>1.60</version>
     </dependency>
   </dependencies>
 
