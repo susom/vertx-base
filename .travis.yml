@@ -1,10 +1,25 @@
 language: java
 jdk:
   - oraclejdk8
+addons:
+  srcclr: true
+before_install:
+  # Disable SourceClear except on scheduled builds
+  - |
+    if [ "$TRAVIS_EVENT_TYPE" != "cron" ]
+    then
+      export NOSCAN=1
+    fi
 # Skip the default mvn command because we want to set the profile explicitly
 install: true
 script:
-  - cp .travis.settings.xml $HOME/.m2/settings.xml && mvn -e -Ppackagecloud test deploy
+  - mvn -e -Ppackagecloud verify
+  # Deploy Maven artifacts, but only from regular master builds
+  - |
+    if [ "$TRAVIS_BRANCH" == "master" -a "$TRAVIS_PULL_REQUEST" == "false" ]
+    then
+      cp .travis.settings.xml $HOME/.m2/settings.xml && mvn -e -Ppackagecloud -DskipTests deploy
+    fi
 after_failure:
   - echo "\n=== SUREFIRE REPORTS ===\n"
   - for F in target/surefire-reports/*.txt; do echo $F; cat $F; echo; done
