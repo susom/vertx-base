@@ -82,7 +82,7 @@ $(function() {
         // Read an XSRF token from a cookie and place it in a header to
         // prove we have access to it (same domain)
         document.cookie.split(';').forEach(function (s) {
-          if (s.startsWith("XSRF-TOKEN=")) {
+          if (s.substr(0, 10) === "XSRF-TOKEN=") {
             xhr.setRequestHeader("X-XSRF-TOKEN", s.substr(11));
           }
         });
@@ -90,7 +90,7 @@ $(function() {
     });
 
     $(document).ajaxError(function (event, xhr, settings, error) {
-      if (xhr.status == 401) {
+      if (xhr.status === 401) {
         if (xhr.getResponseHeader("WWW-Authenticate").match(/Redirect .+/)) {
           // By convention, we use "Redirect https://..." to tell the client where to
           // redirect for an OpenId Connect authentication
@@ -102,7 +102,7 @@ $(function() {
         } else {
           login();
         }
-      } else if (xhr.status == 0) {
+      } else if (xhr.status === 0) {
         alert("The server is not available right now");
       } else {
         alert("Error: " + xhr.status + ": " + error);
