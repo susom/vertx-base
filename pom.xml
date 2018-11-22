@@ -74,6 +74,21 @@
       <version>1.2.1</version>
     </dependency>
     <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-core</artifactId>
+      <version>2.9.6</version>
+    </dependency>
+    <dependency>
+      <groupId>com.google.auth</groupId>
+      <artifactId>google-auth-library-oauth2-http</artifactId>
+      <version>0.10.0</version>
+    </dependency>
+    <dependency>
+      <groupId>com.nimbusds</groupId>
+      <artifactId>nimbus-jose-jwt</artifactId>
+      <version>6.0</version>
+    </dependency>
+    <dependency>
       <groupId>org.pac4j</groupId>
       <artifactId>vertx-pac4j</artifactId>
       <version>2.1.0</version>
