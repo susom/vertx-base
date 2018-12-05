@@ -77,7 +77,7 @@ public class IAPAuthenticator implements Security {
   private final Map<String, InternalSession> sessions = new HashMap<>();
   private final CookieHandler cookieHandler;
   private final Handler<RoutingContext> authenticateOptional;
-  private final Handler<RoutingContext> authenticateRequiredOrRedirectJs;
+  private final Handler<RoutingContext> authenticatedJWTTokenHandler;
   private final String  projectNumber ;
   private final String backendServiceId ;
   private static final String PUBLIC_KEY_VERIFICATION_URL = "https://www.gstatic.com/iap/verify/public_key-jwk";
@@ -90,8 +90,15 @@ public class IAPAuthenticator implements Security {
     this.root = root;
     this.secureRandom = secureRandom;
     config = Config.from().custom(cfg::apply).get();
-    projectNumber = config.getStringOrThrow("project.number");
-    backendServiceId = config.getStringOrThrow("backend.service.id");
+
+     /**
+      * The below two properties are used for the Google Identity Aware Proxy (IAP) authentication.
+      * This is used to secure the application with signed Cloud IAP headers.
+      * GCP project number in which the IAP protected URL is configured.
+      * GCP backend service ID where the IAP protected URL ia mapped.
+      */
+    projectNumber = config.getStringOrThrow("iap.project.number");
+    backendServiceId = config.getStringOrThrow("iap.backend.service.id");
 
     scheduleSessionReaper(vertx);
 
@@ -137,37 +144,8 @@ public class IAPAuthenticator implements Security {
       }
     };
 
-    Handler<RoutingContext> mandatoryRedirectJs = WebAppSessionAuthHandler.mandatory(sessions, false, rc -> {
-      QueryStringEncoder params = new QueryStringEncoder("");
-
-      params.addParam("response_type", "code");
-      params.addParam("redirect_uri", redirectUri(rc));
-      String state = new TokenGenerator(secureRandom).create(15);
-      params.addParam("state", state);
-
-      rc.response().headers().add(SET_COOKIE, io.vertx.ext.web.Cookie.cookie("state", state)
-              .setHttpOnly(true)
-              .setPath(rc.mountPoint() + "/")
-              .setSecure(redirectUri(rc).startsWith("https")).encode());
-
-        rc.response().putHeader("content-type", "text/html").end("<!DOCTYPE html><html><head>"
-                + "<link rel=\"icon\" type=\"image/png\" href=\"data:image/png;base64,iVBORw0KGgo=\"></head><body>"
-                + "<noscript>\n"
-                + "  <div style=\"width: 22em; position: absolute; left: 50%; margin-left: -11em; "
-                + "color: red; background-color: white; border: 1px solid red; padding: 4px; font-family: sans-serif\">\n"
-                + "    Your web browser must have JavaScript enabled\n"
-                + "    in order for this application to display correctly.\n"
-                + "  </div>\n"
-                + "</noscript>"
-                + "<script type=\"application/javascript\">\n"
-                + "var match = window.name.match(/windowId:([^;]+).*/);\n"
-                + "if(match){window.name=\"windowId:\"+match[1]+\";q=\"+window.location.search+window.location.hash}\n"
-                + "else{window.name=\"windowId:\"+Math.floor(Math.random()*1e16).toString(36).slice(0, 8)"
-                + "+\";q=\"+window.location.search+window.location.hash}\n"
-                + "window.location.href='" + Encode.forJavaScript(absoluteContext(config::getString, rc) + "/login") + "';\n"
-                + "</script></body></html>");
-    });
-    authenticateRequiredOrRedirectJs = rc -> {
+    Handler<RoutingContext> authenticatedJWT = WebAppSessionAuthHandler.optional(sessions);
+    authenticatedJWTTokenHandler = rc -> {
       String email = null;
         if (rc.user() == null) {
           if (rc.request().getHeader("x-goog-iap-jwt-assertion") != null) {
@@ -183,11 +161,12 @@ public class IAPAuthenticator implements Security {
           }
 
           if (email != null) {
+              String sunetID = email.substring(0, email.indexOf("@"));
               String sessionToken = new TokenGenerator(secureRandom).create(64);
               InternalSession session = new IAPAuthenticator.InternalSession();
               session.expires = Instant.now().plus(config.getInteger("iap.session.expiration.minutes", 3600), ChronoUnit.SECONDS);
-              session.username = email;
-              session.displayName = email;
+              session.username = sunetID;
+              session.displayName = sunetID;
 
               AuthoritySet authoritySet = new AuthoritySet();
               authoritySet.actingUsername = session.username;
@@ -213,7 +192,7 @@ public class IAPAuthenticator implements Security {
           }
           else {
               cookieHandler.handle(rc);
-              mandatoryRedirectJs.handle(rc);
+              authenticatedJWT.handle(rc);
           }
         }
       else {
@@ -313,13 +292,8 @@ public class IAPAuthenticator implements Security {
     // Add public assets before authentication is required
     router.get("/assets/*").handler(new StrictResourceHandler(vertx).addDir("static/assets-public", "**/*", "assets"));
 
-    // Special case redirect for primary page. This will load a small HTML+JS
-    // page and execute some JavaScript to preserve the query string and bookmark
-    // before doing a client-side redirect.
-    router.get("/").handler(authenticateRequiredOrRedirectJs);
-
-    // If they hit login and have already authenticated, send them back to the top
-    router.get("/login").handler(rc -> rc.response().setStatusCode(302).putHeader("Location", mountPoint + "/").end());
+    // Handler for Verifying the JWT Token
+    router.get("/").handler(authenticatedJWTTokenHandler);
 
     // Now layer in any assets that should be behind authentication (keep in mind
     // things like source maps will not work for resources here because the browser
