@@ -133,11 +133,8 @@ public class IAPAuthenticator implements Security {
 
     Handler<RoutingContext> optional = WebAppSessionAuthHandler.optional(sessions);
     authenticateOptional = rc -> {
-      if (rc.user() == null && rc.get("didAuthenticateOptional") == null) {
-        rc.put("didAuthenticateOptional", "yes");
+      if (rc.user() == null) {
         cookieHandler.handle(rc);
-
-        // This will call rc.next()
         optional.handle(rc);
       } else {
         rc.next();
@@ -147,88 +144,83 @@ public class IAPAuthenticator implements Security {
     Handler<RoutingContext> authenticatedJWT = WebAppSessionAuthHandler.optional(sessions);
     authenticatedJWTTokenHandler = rc -> {
       String email = null;
-        if (rc.user() == null) {
-          if (rc.request().getHeader("x-goog-iap-jwt-assertion") != null) {
-              try {
-              //log.trace("Project number : " + projectNumber);
-              //log.trace("Backend Service Id : " + backendServiceId);
-              if ((rc.request().getHeader("x-goog-iap-jwt-assertion") != null)) {
-                email = verifyJwt((rc.request().getHeader("x-goog-iap-jwt-assertion")), String.format("/projects/%s/global/backendServices/%s",
-                        Long.toUnsignedString(Long.parseLong(projectNumber)), Long.toUnsignedString(Long.parseLong(backendServiceId))));
-              }
-            } catch (Exception e) {
+      if (rc.user() == null) {
+        if (rc.request().getHeader("x-goog-iap-jwt-assertion") != null) {
+          try {
+            //log.trace("Project number : " + projectNumber);
+            //log.trace("Backend Service Id : " + backendServiceId);
+            if ((rc.request().getHeader("x-goog-iap-jwt-assertion") != null)) {
+              email = verifyJwt((rc.request().getHeader("x-goog-iap-jwt-assertion")),
+                      String.format("/projects/%s/global/backendServices/%s",
+                      Long.toUnsignedString(Long.parseLong(projectNumber)), Long.toUnsignedString(Long.parseLong(backendServiceId))));
             }
-          }
-
-          if (email != null) {
-              String sunetID = email.substring(0, email.indexOf("@"));
-              String sessionToken = new TokenGenerator(secureRandom).create(64);
-              InternalSession session = new IAPAuthenticator.InternalSession();
-              session.expires = Instant.now().plus(config.getInteger("iap.session.expiration.minutes", 3600), ChronoUnit.SECONDS);
-              session.username = sunetID;
-              session.displayName = sunetID;
-
-              AuthoritySet authoritySet = new AuthoritySet();
-              authoritySet.actingUsername = session.username;
-              authoritySet.actingDisplayName = session.displayName;
-              authoritySet.combinedDisplayName = session.displayName;
-              // TODO  Revisit the readAuthorityAsList method for reading the authority.
-              authoritySet.staticAuthority.addAll(new ArrayList<>());
-              session.authoritySets.put(DEFAULT_AUTHORITY_SET, authoritySet);
-              sessions.put(sessionToken, session);
-
-              io.vertx.ext.web.Cookie sessionCookie = io.vertx.ext.web.Cookie.cookie("session_token",
-                      sessionToken).setHttpOnly(true)
-                      .setSecure(redirectUri(rc).startsWith("https"));
-              io.vertx.ext.web.Cookie xsrfCookie = io.vertx.ext.web.Cookie.cookie("XSRF-TOKEN",
-                      new TokenGenerator(secureRandom).create())
-                      .setSecure(redirectUri(rc).startsWith("https"));
-
-              rc.response().headers()
-                      .add(SET_COOKIE, sessionCookie.encode())
-                      .add(SET_COOKIE, xsrfCookie.encode());
-              log.info("Setting session Cookie");
-              rc.next();
-          }
-          else {
-              cookieHandler.handle(rc);
-              authenticatedJWT.handle(rc);
+          } catch (Exception e) {
+            log.warn(e.getMessage());
+            e.printStackTrace();
           }
         }
-      else {
+        if (email != null) {
+          String sunetID = email.substring(0, email.indexOf("@"));
+          String sessionToken = new TokenGenerator(secureRandom).create(64);
+          InternalSession session = new IAPAuthenticator.InternalSession();
+          session.expires = Instant.now().plus(config.getInteger("iap.session.expiration.minutes", 3600), ChronoUnit.SECONDS);
+          session.username = sunetID;
+          session.displayName = sunetID;
+          AuthoritySet authoritySet = new AuthoritySet();
+          authoritySet.actingUsername = session.username;
+          authoritySet.actingDisplayName = session.displayName;
+          authoritySet.combinedDisplayName = session.displayName;
+          // TODO  Revisit the readAuthorityAsList method for reading the authority.
+          authoritySet.staticAuthority.addAll(new ArrayList<>());
+          session.authoritySets.put(DEFAULT_AUTHORITY_SET, authoritySet);
+          sessions.put(sessionToken, session);
+          io.vertx.ext.web.Cookie sessionCookie = io.vertx.ext.web.Cookie.cookie("session_token",
+                  sessionToken).setHttpOnly(true).setSecure(redirectUri(rc).startsWith("https"));
+          io.vertx.ext.web.Cookie xsrfCookie = io.vertx.ext.web.Cookie.cookie("XSRF-TOKEN",
+                  new TokenGenerator(secureRandom).create()).setSecure(redirectUri(rc).startsWith("https"));
+          rc.response().headers()
+            .add(SET_COOKIE, sessionCookie.encode())
+            .add(SET_COOKIE, xsrfCookie.encode());
+          log.info("Setting session Cookie");
+          rc.next();
+        } else {
+          cookieHandler.handle(rc);
+          authenticatedJWT.handle(rc);
+        }
+      } else {
         rc.next();
       }
     };
   }
 
   private void scheduleSessionReaper(Vertx vertx) {
-      vertx.setPeriodic(300000L, id -> {
-          Metric metric = new Metric(log.isTraceEnabled());
-          Instant now = Instant.now();
-          List<String> expired = new ArrayList<>(500);
-          sessions.forEach((k,v) -> {
-              if (v.expires.isBefore(now)) {
-                  expired.add(k);
-              }
-          });
-          for (String token : expired) {
-              sessions.remove(token);
+    vertx.setPeriodic(300000L, id -> {
+      Metric metric = new Metric(log.isTraceEnabled());
+        Instant now = Instant.now();
+        List<String> expired = new ArrayList<>(500);
+        sessions.forEach((k,v) -> {
+          if (v.expires.isBefore(now)) {
+            expired.add(k);
           }
-          if (log.isTraceEnabled()) {
-              log.trace("Reaped " + expired.size() + " expired sessions " + metric.getMessage());
-          }
+        });
+        for (String token : expired) {
+          sessions.remove(token);
+        }
+        if (log.isTraceEnabled()) {
+          log.trace("Reaped " + expired.size() + " expired sessions " + metric.getMessage());
+        }
       });
     }
 
-    /*
-     * Verify the JWT token.
-     *
-     * @param jwtToken contains the JWT token.
-     * @param expectedAudience a string in the format /projects/PROJECT_NUMBER/global/backendServices/SERVICE_ID
-     *
-     * @return email of the logged in user, if the token is valid.
-     */
-   private String verifyJwt(String jwtToken, String expectedAudience) throws Exception {
+  /**
+   * Verify the JWT token.
+   *
+   * @param jwtToken contains the JWT token.
+   * @param expectedAudience a string in the format /projects/PROJECT_NUMBER/global/backendServices/SERVICE_ID
+   *
+   * @return email of the logged in user, if the token is valid.
+   */
+  private String verifyJwt(String jwtToken, String expectedAudience) throws Exception {
     // parse signed token into header / claims
     SignedJWT signedJwt = SignedJWT.parse(jwtToken);
     JWSHeader jwsHeader = signedJwt.getHeader();
@@ -258,12 +250,21 @@ public class IAPAuthenticator implements Security {
     Preconditions.checkNotNull(publicKey);
     JWSVerifier jwsVerifier = new ECDSAVerifier(publicKey);
     boolean isTokenValid = signedJwt.verify(jwsVerifier);
-    if (isTokenValid)
+    if (isTokenValid) {
       return email;
-    else
-        return null;
+    } else {
+      return null;
+    }
   }
 
+  /**
+   * Get the Key from KeyID and algorithm using a Public key verification URL.
+   *
+   * @param kid KeyId
+   * @param kid algorithm
+   *
+   * @return key
+   */
   private ECPublicKey getKey(String kid, String alg) throws Exception {
     JWK jwk = keyCache.get(kid);
     if (jwk == null) {
