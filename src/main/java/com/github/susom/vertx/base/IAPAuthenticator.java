@@ -450,35 +450,35 @@ public class IAPAuthenticator implements Security {
                 MDC.put("userId", session.username);
                 rc.next();
             } else {
-                MetricsHandler.checkpoint(rc, "authFail");
-                rc.response().headers().add(SET_COOKIE, sessionCookie.setValue("").setMaxAge(0).encode());
-                if (mandatory) {
-                    if (log.isTraceEnabled()) {
-                        if (session == null) {
-                            log.trace("Session cookie is null");
-                        } else {
-                            log.trace("Session cookie is invalid: expires=" + session.expires + " revoked=" + session.revoked);
-                        }
-                    }
-                    if (redirecter == null) {
-                        rc.response().setStatusCode(401).end("Session expired");
-                    } else {
-                        redirecter.handle(rc);
-                    }
-                } else {
-                    rc.next();
-                }
-            }
-          } else {
-              MetricsHandler.checkpoint(rc, "noAuth");
+              MetricsHandler.checkpoint(rc, "authFail");
+              rc.response().headers().add(SET_COOKIE, sessionCookie.setValue("").setMaxAge(0).encode());
               if (mandatory) {
-                  if (redirecter == null) {
-                      rc.response().setStatusCode(401).end("No session_token cookie");
+                if (log.isTraceEnabled()) {
+                  if (session == null) {
+                    log.trace("Session cookie is null");
                   } else {
-                      redirecter.handle(rc);
+                    log.trace("Session cookie is invalid: expires=" + session.expires + " revoked=" + session.revoked);
                   }
+                }
+                if (redirecter == null) {
+                  rc.response().setStatusCode(401).end("Session expired");
+                } else {
+                    redirecter.handle(rc);
+                }
               } else {
                   rc.next();
+              }
+            }
+          } else {
+            MetricsHandler.checkpoint(rc, "noAuth");
+            if (mandatory) {
+              if (redirecter == null) {
+                rc.response().setStatusCode(401).end("No session_token cookie");
+              } else {
+                redirecter.handle(rc);
+              }
+            } else {
+              rc.next();
           }
         }
       }
