@@ -155,7 +155,7 @@ public class IAPAuthenticator implements Security {
                       Long.toUnsignedString(Long.parseLong(projectNumber)), Long.toUnsignedString(Long.parseLong(backendServiceId))));
             }
           } catch (Exception e) {
-            log.warn(e.getMessage());
+            log.trace(e.getMessage());
             e.printStackTrace();
           }
         }
