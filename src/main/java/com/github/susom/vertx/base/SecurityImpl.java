@@ -64,8 +64,11 @@ public class SecurityImpl implements Security {
       case "custom":
         delegate = new CustomAuthenticator();
         break;
+      case "iap":
+          delegate = new IAPAuthenticator(vertx, root, secureRandom, cfg);
+          break;
       default:
-        throw new ConfigInvalidException("Set security.authenticator=[saml|oidc-keycloak|custom] - was: " + authenticator);
+        throw new ConfigInvalidException("Set security.authenticator=[saml|oidc-keycloak|custom|iap] - was: " + authenticator);
       }
     }
   }
