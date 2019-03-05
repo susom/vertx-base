@@ -109,7 +109,7 @@ public class SampleMain {
         if (messageId == null) {
           rc.response().end(new JsonObject().put("message", "Hi").encode());
         } else {
-          AuthenticatedUser.required(rc).isAuthorised("service:secret:message:" + messageId, r -> {
+          AuthenticatedUser.required(rc).isAuthorized("service:secret:message:" + messageId, r -> {
             if (r.succeeded() && r.result()) {
               rc.response().end(new JsonObject().put("message", "Hi " + messageId).encode());
             } else {
@@ -133,7 +133,7 @@ public class SampleMain {
       new DatabaseHealthCheck(vertx, db, config).addStatusHandlers(root);
 
       // Start the server
-      vertx.createHttpServer().requestHandler(root::accept).listen(8888, "localhost", h -> {
+      vertx.createHttpServer().requestHandler(root).listen(8888, "localhost", h -> {
         if (h.succeeded()) {
           int port = h.result().actualPort();
           log.info("Started server on port " + port + ":\n    http://localhost:" + port + "/app" );

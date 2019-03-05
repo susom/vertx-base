@@ -43,7 +43,7 @@ public class CustomAuthenticator implements Security {
         log.warn("No authenticated user");
         rc.response().setStatusCode(401).end("401 Authentication Required");
       } else {
-        user.isAuthorised(authority, r -> {
+        user.isAuthorized(authority, r -> {
           if (r.succeeded() && r.result()) {
             rc.next();
           } else {
