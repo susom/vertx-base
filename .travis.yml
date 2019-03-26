@@ -13,12 +13,12 @@ before_install:
 # Skip the default mvn command because we want to set the profile explicitly
 install: true
 script:
-  - mvn -e -Ppackagecloud verify
+  - mvn -e verify
   # Deploy Maven artifacts, but only from regular master builds
   - |
     if [ "$TRAVIS_BRANCH" == "master" -a "$TRAVIS_PULL_REQUEST" == "false" ]
     then
-      cp .travis.settings.xml $HOME/.m2/settings.xml && mvn -e -Ppackagecloud -DskipTests deploy
+      cp .travis.settings.xml $HOME/.m2/settings.xml && mvn -e -DskipTests deploy
     fi
 after_failure:
   - echo "\n=== SUREFIRE REPORTS ===\n"
