@@ -66,6 +66,11 @@ public class StrictBodyHandler implements Handler<RoutingContext> {
   }
 
   public void handle(RoutingContext rc) {
+    if (rc.request().isEnded()) {
+      rc.next();
+      return;
+    }
+
     if (multipart) {
       rc.request().setExpectMultipart(true);
     }
