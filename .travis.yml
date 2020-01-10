@@ -52,7 +52,7 @@ jobs:
       script:
         - echo "release-check"
         # Ensure we don't have any external SNAPSHOT dependencies
-        - mvn --batch-mode release:prepare -DskipTests=true -DdryRun=true
+        - mvn --batch-mode release:prepare -DskipTests -Darguments=-DskipTests -DdryRun=true
     - stage: release
       script:
         - echo "release"
