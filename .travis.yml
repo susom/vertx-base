@@ -13,7 +13,7 @@ before_install:
 # Skip the default mvn command because we want to set the profile explicitly
 install: true
 script:
-  - mvn -e verify
+  - mvn -Dmaven.wagon.http.retryHandler.count=3 -e verify
   # Deploy Maven artifacts, but only from regular master builds
   - |
     if [ "$TRAVIS_BRANCH" == "master" -a "$TRAVIS_PULL_REQUEST" == "false" ]
