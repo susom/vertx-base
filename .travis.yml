@@ -38,8 +38,8 @@ jobs:
       install: true
       script:
         - echo "test"
-        - mvn -e test
-        - mvn -e verify
+        - mvn -Dmaven.wagon.http.retryHandler.count=3 -e test
+        - mvn -Dmaven.wagon.http.retryHandler.count=3 -e verify
       after_failure:
         - echo "\n=== SUREFIRE REPORTS ===\n"
         - for F in target/surefire-reports/*.txt; do echo $F; cat $F; echo; done
@@ -47,12 +47,12 @@ jobs:
       script:
         - echo "deploy-snapshots"
         # When push to master occurs, all the versions should be -SNAPSHOTs and we will auto-deploy
-        - mvn --batch-mode -e -DskipTests=true deploy
+        - mvn -Dmaven.wagon.http.retryHandler.count=3 --batch-mode -e -DskipTests=true deploy
     - stage: release-check
       script:
         - echo "release-check"
         # Ensure we don't have any external SNAPSHOT dependencies
-        - mvn --batch-mode release:prepare -DskipTests -Darguments=-DskipTests -DdryRun=true
+        - mvn -Dmaven.wagon.http.retryHandler.count=3 --batch-mode release:prepare -DskipTests -Darguments=-DskipTests -DdryRun=true
     - stage: release
       script:
         - echo "release"
@@ -64,8 +64,8 @@ jobs:
         - git config branch.${TRAVIS_BRANCH}.merge refs/heads/${TRAVIS_BRANCH}
         # Prepare for signing artifacts as part of release process
         # NOTE: based on http://www.debonair.io/post/maven-cd/ "Encrypt cert and variables for travis"
-        - openssl aes-256-cbc -K $encrypted_1d39e233a764_key -iv $encrypted_1d39e233a764_iv -in travis/codesigning.asc.enc -out travis/codesigning.asc -d
+        - openssl aes-256-cbc -K $encrypted_5130f6b5ddc1_key -iv $encrypted_5130f6b5ddc1_iv -in travis/codesigning.asc.enc -out travis/codesigning.asc -d
         - gpg --fast-import travis/codesigning.asc
         # Perform mvn release steps
-        - mvn --batch-mode release:prepare -DskipTests -Darguments=-DskipTests -DtagNameFormat="v@{project.version}" -DscmCommentPrefix="[maven-release-plugin][skip travis]" # NOTE: this stop's travis from building based on the tag's commit/push.
-        - mvn --batch-mode release:perform -DskipTests -Darguments=-DskipTests
+        - mvn -Dmaven.wagon.http.retryHandler.count=3 --batch-mode release:prepare -DskipTests -Darguments=-DskipTests -DtagNameFormat="v@{project.version}" -DscmCommentPrefix="[maven-release-plugin][skip travis]" # NOTE: this stop's travis from building based on the tag's commit/push.
+        - mvn -Dmaven.wagon.http.retryHandler.count=3 --batch-mode release:perform -DskipTests -Darguments=-DskipTests

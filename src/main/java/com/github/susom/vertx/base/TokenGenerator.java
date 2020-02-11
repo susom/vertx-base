@@ -44,7 +44,7 @@ public class TokenGenerator {
     StringBuilder key = new StringBuilder();
 
     while (key.length() < length) {
-      key.append(Long.toString(Math.abs(secureRandom.nextLong()), Character.MAX_RADIX));
+      key.append(Integer.toString(secureRandom.nextInt(Integer.MAX_VALUE), Character.MAX_RADIX));
     }
 
     if (log.isDebugEnabled() && metric.elapsedMillis() > 50) {
