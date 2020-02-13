@@ -1,25 +1,71 @@
 language: java
+
 jdk:
   - openjdk8
+
+dist: trusty
+
+cache:
+  directories:
+    - $HOME/.m2
+
+stages:
+  - test
+  - name: deploy-snapshots
+    if: branch = master AND type = push
+  - name: release-check
+    if: (branch =~ /^release.*/)
+  - name: release
+    if: (branch =~ /^release.*/)
+
 addons:
   srcclr: true
+
 before_install:
+  # Ensure the settings we want to use are in place before running the default mvn install
+  - cp ./travis/maven-settings.xml $HOME/.m2/settings.xml
   # Disable SourceClear except on scheduled builds
   - |
     if [ "$TRAVIS_EVENT_TYPE" != "cron" ]
     then
       export NOSCAN=1
     fi
-# Skip the default mvn command because we want to set the profile explicitly
-install: true
-script:
-  - mvn -Dmaven.wagon.http.retryHandler.count=3 -e verify
-  # Deploy Maven artifacts, but only from regular master builds
-  - |
-    if [ "$TRAVIS_BRANCH" == "master" -a "$TRAVIS_PULL_REQUEST" == "false" ]
-    then
-      cp .travis.settings.xml $HOME/.m2/settings.xml && mvn -e -DskipTests deploy
-    fi
-after_failure:
-  - echo "\n=== SUREFIRE REPORTS ===\n"
-  - for F in target/surefire-reports/*.txt; do echo $F; cat $F; echo; done
+
+jobs:
+  include:
+    - stage: test
+      # Skip the default mvn command because we want to set the profile explicitly
+      install: true
+      script:
+        - echo "test"
+        - mvn -Dmaven.wagon.http.retryHandler.count=3 -e test
+        - mvn -Dmaven.wagon.http.retryHandler.count=3 -e verify
+      after_failure:
+        - echo "\n=== SUREFIRE REPORTS ===\n"
+        - for F in target/surefire-reports/*.txt; do echo $F; cat $F; echo; done
+    - stage: deploy-snapshots
+      script:
+        - echo "deploy-snapshots"
+        # When push to master occurs, all the versions should be -SNAPSHOTs and we will auto-deploy
+        - mvn -Dmaven.wagon.http.retryHandler.count=3 --batch-mode -e -DskipTests=true deploy
+    - stage: release-check
+      script:
+        - echo "release-check"
+        # Ensure we don't have any external SNAPSHOT dependencies
+        - mvn -Dmaven.wagon.http.retryHandler.count=3 --batch-mode release:prepare -DskipTests -Darguments=-DskipTests -DdryRun=true
+    - stage: release
+      script:
+        - echo "release"
+        # Git fix based on: https://github.com/sbt/sbt-release/issues/210
+        - echo "Fixing git setup for $TRAVIS_BRANCH in preparation for release"
+        - git checkout ${TRAVIS_BRANCH}
+        - git branch -u origin/${TRAVIS_BRANCH}
+        - git config branch.${TRAVIS_BRANCH}.remote origin
+        - git config branch.${TRAVIS_BRANCH}.merge refs/heads/${TRAVIS_BRANCH}
+        # Prepare for signing artifacts as part of release process
+        # NOTE: based on http://www.debonair.io/post/maven-cd/ "Encrypt cert and variables for travis"
+        - openssl aes-256-cbc -K $encrypted_5130f6b5ddc1_key -iv $encrypted_5130f6b5ddc1_iv -in travis/codesigning.asc.enc -out travis/codesigning.asc -d
+        - gpg --fast-import travis/codesigning.asc
+        # Perform mvn release steps
+        - mvn -Dmaven.wagon.http.retryHandler.count=3 --batch-mode release:prepare -DskipTests -Darguments=-DskipTests -DtagNameFormat="v@{project.version}" -DscmCommentPrefix="[maven-release-plugin][skip travis]" # NOTE: this stop's travis from building based on the tag's commit/push.
+        - mvn -Dmaven.wagon.http.retryHandler.count=3 --batch-mode release:perform -DskipTests -Darguments=-DskipTests
