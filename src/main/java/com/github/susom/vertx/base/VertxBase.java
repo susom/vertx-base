@@ -19,8 +19,8 @@ import com.github.susom.database.ConfigMissingException;
 import com.github.susom.database.Metric;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Context;
-import io.vertx.core.Future;
 import io.vertx.core.Handler;
+import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.json.JsonObject;
@@ -120,17 +120,17 @@ public class VertxBase {
    * Equivalent to {@link Vertx#executeBlocking(Handler, Handler)},
    * but preserves the {@link MDC} correctly.
    */
-  public static <T> void executeBlocking(Vertx vertx, Handler<Future<T>> future, Handler<AsyncResult<T>> handler) {
-    executeBlocking(vertx, future, true, handler);
+  public static <T> void executeBlocking(Vertx vertx, Handler<Promise<T>> promiseHandler, Handler<AsyncResult<T>> handler) {
+    executeBlocking(vertx, promiseHandler, true, handler);
   }
 
   /**
    * Equivalent to {@link Vertx#executeBlocking(Handler, boolean, Handler)},
    * but preserves the {@link MDC} correctly.
    */
-  public static <T> void executeBlocking(Vertx vertx, Handler<Future<T>> future, boolean ordered,
+  public static <T> void executeBlocking(Vertx vertx, Handler<Promise<T>> promiseHandler, boolean ordered,
                                          Handler<AsyncResult<T>> handler) {
-    vertx.executeBlocking(mdc(future), ordered, mdcEventLoop(handler));
+    vertx.getOrCreateContext().executeBlocking(mdc(promiseHandler), ordered, mdcEventLoop(handler));
   }
 
   /**
