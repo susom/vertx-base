@@ -12,7 +12,7 @@
   <url>https://github.com/susom/vertx-base</url>
 
   <properties>
-    <vertx.version>3.9.7</vertx.version>
+    <vertx.version>3.9.8</vertx.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
   </properties>
@@ -87,7 +87,7 @@
     <dependency>
       <groupId>com.google.auth</groupId>
       <artifactId>google-auth-library-oauth2-http</artifactId>
-      <version>0.20.0</version>
+      <version>1.2.0</version>
     </dependency>
     <dependency>
       <groupId>com.nimbusds</groupId>
