@@ -55,9 +55,6 @@ public class SecurityImpl implements Security {
       }
 
       switch (authenticator) {
-      case "saml":
-        delegate = new SamlAuthenticator(vertx, root, secureRandom, cfg);
-        break;
       case "oidc-keycloak":
         delegate = new OidcKeycloakAuthenticator(vertx, root, secureRandom, cfg);
         break;
@@ -68,7 +65,7 @@ public class SecurityImpl implements Security {
           delegate = new IAPAuthenticator(vertx, root, secureRandom, cfg);
           break;
       default:
-        throw new ConfigInvalidException("Set security.authenticator=[saml|oidc-keycloak|custom|iap] - was: " + authenticator);
+        throw new ConfigInvalidException("Set security.authenticator=[oidc-keycloak|custom|iap] - was: " + authenticator);
       }
     }
   }
