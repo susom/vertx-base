@@ -18,9 +18,6 @@ stages:
   - name: release
     if: (branch =~ /^release.*/)
 
-addons:
-  srcclr: true
-
 before_install:
   # Ensure the settings we want to use are in place before running the default mvn install
   - cp ./travis/maven-settings.xml $HOME/.m2/settings.xml
@@ -64,7 +61,7 @@ jobs:
         - git config branch.${TRAVIS_BRANCH}.merge refs/heads/${TRAVIS_BRANCH}
         # Prepare for signing artifacts as part of release process
         # NOTE: based on http://www.debonair.io/post/maven-cd/ "Encrypt cert and variables for travis"
-        - openssl aes-256-cbc -K $encrypted_5130f6b5ddc1_key -iv $encrypted_5130f6b5ddc1_iv -in travis/codesigning.asc.enc -out travis/codesigning.asc -d
+        - openssl aes-256-cbc -K $encrypted_4d75e2900770_key -iv $encrypted_4d75e2900770_iv -in travis/codesigning.asc.enc -out travis/codesigning.asc -d
         - gpg --fast-import travis/codesigning.asc
         # Perform mvn release steps
         - mvn -Dmaven.wagon.http.retryHandler.count=3 --batch-mode release:prepare -DskipTests -Darguments=-DskipTests -DtagNameFormat="v@{project.version}" -DscmCommentPrefix="[maven-release-plugin][skip travis]" # NOTE: this stop's travis from building based on the tag's commit/push.
