@@ -22,7 +22,6 @@
       <groupId>com.github.susom</groupId>
       <artifactId>database</artifactId>
       <version>4.0</version>
-      <optional>true</optional>
     </dependency>
     <dependency>
       <groupId>org.apache.commons</groupId>
@@ -184,7 +183,6 @@
               <artifactSet>
                 <includes>
                   <include>com.github.susom:vertx-base</include>
-                  <include>com.github.susom:database</include>
                   <include>org.apache.commons:commons-lang3</include>
                   <include>org.springframework:spring-core</include>
                 </includes>
@@ -197,10 +195,6 @@
                 <relocation>
                   <pattern>org.apache.commons.lang3</pattern>
                   <shadedPattern>com.github.susom.vertx.base.shaded.org.apache.commons.lang3</shadedPattern>
-                </relocation>
-                <relocation>
-                  <pattern>com.github.susom.database</pattern>
-                  <shadedPattern>com.github.susom.vertx.base.shaded.com.github.susom.database</shadedPattern>
                 </relocation>
               </relocations>
               <filters>
