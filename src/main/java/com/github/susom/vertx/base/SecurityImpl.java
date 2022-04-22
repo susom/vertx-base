@@ -35,7 +35,7 @@ import org.slf4j.LoggerFactory;
  */
 public class SecurityImpl implements Security {
   private static final Logger log = LoggerFactory.getLogger(SecurityImpl.class);
-  private Security delegate;
+  private final Security delegate;
 
   public SecurityImpl(Vertx vertx, Router root, SecureRandom secureRandom, Function<String, String> cfg)
       throws Exception {
@@ -50,8 +50,8 @@ public class SecurityImpl implements Security {
       String authenticator = config.getString("security.authenticator");
 
       if (authenticator == null) {
-        log.warn("You should set property security.authenticator=[saml|oidc-keycloak|custom] - defaulting to saml");
-        authenticator = "saml";
+        log.warn("You should set property security.authenticator=[iap|oidc-keycloak|custom] - defaulting to iap");
+        authenticator = "iap";
       }
 
       switch (authenticator) {
@@ -65,7 +65,7 @@ public class SecurityImpl implements Security {
           delegate = new IAPAuthenticator(vertx, root, secureRandom, cfg);
           break;
       default:
-        throw new ConfigInvalidException("Set security.authenticator=[oidc-keycloak|custom|iap] - was: " + authenticator);
+        throw new ConfigInvalidException("Set security.authenticator=[iap|oidc-keycloak|custom] - was: " + authenticator);
       }
     }
   }
