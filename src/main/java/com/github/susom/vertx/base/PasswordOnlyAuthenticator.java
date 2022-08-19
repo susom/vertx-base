@@ -171,6 +171,8 @@ public class PasswordOnlyAuthenticator implements Security {
           if (isMandatory) {
             MetricsHandler.checkpoint(rc, "authNoCookie");
             sendRedirectOrDeny(rc);
+          } else {
+            rc.next();
           }
         }
       }
