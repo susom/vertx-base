@@ -68,7 +68,7 @@ public class PasswordOnlyAuthenticator implements Security {
     }
     String footer = config.getString("passwordonly.message.footer");
     footer = footer == null ? "" : footer;
-    loginpageTemplate = new String(Files.readAllBytes(Paths.get(resource.toURI())))
+    loginpageTemplate = new String(Files.readAllBytes(Paths.get(resource.toURI())), StandardCharsets.UTF_8)
         .replaceAll("HEADER_MESSAGE", Encode.forHtml(config.getString("passwordonly.message.header", "Enter your password to access this site.")))
         .replaceAll("LABEL_MESSAGE", Encode.forHtml(config.getString("passwordonly.message.label", "Password:")))
         .replaceAll("PLACEHOLDER_MESSAGE", Encode.forHtml(config.getString("passwordonly.message.placeholder", "Your password")))
