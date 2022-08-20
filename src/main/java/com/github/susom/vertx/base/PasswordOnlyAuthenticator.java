@@ -26,7 +26,12 @@ import io.vertx.ext.auth.jwt.JWTAuth;
 import io.vertx.ext.auth.jwt.JWTAuthOptions;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
+import java.io.IOException;
+import java.net.URISyntaxException;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.security.SecureRandom;
 import java.util.Base64;
 import java.util.HashSet;
@@ -48,18 +53,32 @@ public class PasswordOnlyAuthenticator implements Security {
   private final PasswordOnlyValidator validator;
   private final Config config;
   private final JWTAuth jwt;
+  private final String loginpageTemplate;
 
-  public PasswordOnlyAuthenticator(Vertx vertx, Router root, SecureRandom random, PasswordOnlyValidator validator, Function<String, String> cfg) {
+  public PasswordOnlyAuthenticator(Vertx vertx, Router root, SecureRandom random, PasswordOnlyValidator validator, Function<String, String> cfg) throws URISyntaxException, IOException {
     this.vertx = vertx;
     this.root = root;
     this.secureRandom = random;
     this.validator = validator;
     this.config = Config.from().custom(cfg).get();
 
+    URL resource = getClass().getResource("/static/password-only-authentication/password-only.nocache.html");
+    if (resource == null) {
+      throw new RuntimeException("Unable to locate password-only.nocache.html in the classpath");
+    }
+    String footer = config.getString("passwordonly.message.footer");
+    footer = footer == null ? "" : footer;
+    loginpageTemplate = new String(Files.readAllBytes(Paths.get(resource.toURI())))
+        .replaceAll("HEADER_MESSAGE", Encode.forHtml(config.getString("passwordonly.message.header", "Enter your password to access this site.")))
+        .replaceAll("LABEL_MESSAGE", Encode.forHtml(config.getString("passwordonly.message.label", "Password:")))
+        .replaceAll("PLACEHOLDER_MESSAGE", Encode.forHtml(config.getString("passwordonly.message.placeholder", "Your password")))
+        .replaceAll("BUTTON_MESSAGE", Encode.forHtml(config.getString("passwordonly.message.button", "Login")))
+        .replaceAll("FOOTER_MESSAGE", Encode.forHtml(footer));
+
     jwt = JWTAuth.create(vertx, new JWTAuthOptions()
         .addPubSecKey(new PubSecKeyOptions()
             .setAlgorithm("HS256")
-            .setPublicKey(config.getString("jwt.secret"))
+            .setPublicKey(config.getString("passwordonly.jwt.secret"))
             .setSymmetric(true)));
   }
 
@@ -69,21 +88,23 @@ public class PasswordOnlyAuthenticator implements Security {
     StrictBodyHandler smallBodyHandler = new StrictBodyHandler(4000);
 
     // Optional authenticate just to populate user information into the logs
-    router.route().handler(authenticate(false));
+    router.route().handler(checkAuthentication(false));
     router.route().handler(new MetricsHandler(secureRandom, config.getBooleanOrFalse("insecure.log.full.requests")));
-    router.get("/*").handler(new StrictResourceHandler(vertx)
-            .addDir("static/assets-public", "**/*", "assets")
-            .addDir("static/password-only-authentication")
-            .rename("password-only.nocache.html", "auth"));
+    router.get("/*").handler(new StrictResourceHandler(vertx).addDir("static/assets-public", "**/*", "assets"));
+
+    router.get("/auth/*").handler(rc -> {
+      String loginpage = loginpageTemplate.replaceAll("BASE_PATH", rc.mountPoint());
+      rc.response().putHeader("content-type", "text/html").end(loginpage);
+    }).failureHandler(VertxBase::jsonApiFail);
 
     // Static login page sends us the username here
     router.post("/authenticate").handler(smallBodyHandler);
     router.post("/authenticate").handler(this::authenticate).failureHandler(VertxBase::jsonApiFail);
 
-    router.get("/logout").handler(logoutHandler());
+    router.get("/logout").handler(logoutHandler()).failureHandler(VertxBase::jsonApiFail);
 
     // Mandatory authenticate
-    router.route().handler(authenticate(true));
+    router.route().handler(checkAuthentication(true)).failureHandler(VertxBase::jsonApiFail);
 
     // Now layer in any assets that should be behind authentication (keep in mind
     // things like source maps will not work for resources here because the browser
@@ -91,7 +112,7 @@ public class PasswordOnlyAuthenticator implements Security {
     router.get("/assets/*").handler(new StrictResourceHandler(vertx).addDir("static/assets-private", "**/*", "assets"));
 
     // Information for the client about whether we are logged in, how to login, etc.
-    router.get("/login-status").handler(loginStatusHandler());
+    router.get("/login-status").handler(loginStatusHandler()).failureHandler(VertxBase::jsonApiFail);
 
     root.mountSubRouter(mountPoint, router);
     return router;
@@ -117,7 +138,7 @@ public class PasswordOnlyAuthenticator implements Security {
     };
   }
 
-  private Handler<RoutingContext> authenticate(boolean isMandatory) {
+  private Handler<RoutingContext> checkAuthentication(boolean isMandatory) {
     return rc -> {
       AuthenticatedUser user = AuthenticatedUser.from(rc);
       if (user != null) {
@@ -185,25 +206,21 @@ public class PasswordOnlyAuthenticator implements Security {
     String loginUrl = absoluteContext(config::getString, rc) + "/auth";
     if ("XMLHttpRequest".equals(rc.request().getHeader("X-Requested-With"))) {
       rc.response().setStatusCode(401)
-          .putHeader("WWW-Authenticate", "Redirect " + loginUrl)
+          .putHeader("WWW-Authenticate", "Redirect " + loginUrl + "/{request}")
           .end("401 Authentication Required");
     } else if ("document".equals(rc.request().getHeader("Sec-Fetch-Dest"))) {
-      rc.response().putHeader("content-type", "text/html").end("<!DOCTYPE html><html><body>"
+      rc.response().putHeader("content-type", "text/html").end("<html><body>\n"
           + "<noscript>\n"
           + "  <div style=\"width: 22em; position: absolute; left: 50%; margin-left: -11em; color: red; background-color: white; border: 1px solid red; padding: 4px; font-family: sans-serif\">\n"
           + "    Your web browser must have JavaScript enabled\n"
           + "    in order for this application to display correctly.\n"
           + "  </div>\n"
-          + "</noscript>"
+          + "</noscript>\n"
           + "<script type=\"application/javascript\">\n"
-          + "var match = window.name.match(/windowId:([^;]+).*/);\n"
-          + "if(match){window.name=\"windowId:\"+match[1]+\";q=\"+window.location.search+window.location.hash}\n"
-          + "else{window.name=\"windowId:\"+Math.floor(Math.random()*1e16).toString(36).slice(0, 8)"
-          + "+\";q=\"+window.location.search+window.location.hash}\n"
-          + "window.location.href='" + Encode.forJavaScript(loginUrl) + "';\n"
-          + "</script></body></html>");
+          + "  window.location.href='" + Encode.forJavaScript(loginUrl) + "' + window.location.pathname + window.location.search + window.location.hash;\n"
+          + "</script></body></html>\n");
     } else {
-      rc.response().setStatusCode(302).putHeader("location", loginUrl).end();
+      rc.response().setStatusCode(302).putHeader("Location", loginUrl + rc.request().path() + "?" + rc.request().query()).end();
     }
   }
 
@@ -237,11 +254,6 @@ public class PasswordOnlyAuthenticator implements Security {
               .setHttpOnly(true)
               .setPath(rc.mountPoint() + "/")
               .setSecure(absoluteContext(config::getString, rc).startsWith("https")).encode())
-          .add(SET_COOKIE, Cookie.cookie("XSRF-TOKEN", "")
-              .setMaxAge(0)
-              .setHttpOnly(true)
-              .setPath(rc.mountPoint() + "/")
-              .setSecure(absoluteContext(config::getString, rc).startsWith("https")).encode())
           .add("location", VertxBase.absolutePath(config::getString, rc) + "?done=yes");
       rc.response().setStatusCode(302).end();
     };
@@ -249,6 +261,12 @@ public class PasswordOnlyAuthenticator implements Security {
 
   private void authenticate(RoutingContext rc) {
     JsonObject loginJson = Valid.nonNull(rc.getBodyAsJson(), "No body");
+    String loginDestPath = loginJson.getString("destpath", rc.mountPoint());
+    String loginUrl = rc.mountPoint() + "/auth";
+    if (loginDestPath.startsWith(loginUrl)) {
+      loginDestPath = loginDestPath.substring(loginUrl.length());
+    }
+
     AuthenticatedUser user = validator.authenticate(loginJson.getString("password"));
 
     if (user != null) {
@@ -256,7 +274,7 @@ public class PasswordOnlyAuthenticator implements Security {
           user.principal(),
           new JWTOptions()
               .setAlgorithm("HS256")
-              .setExpiresInMinutes(1));
+              .setExpiresInMinutes(config.getInteger("passwordonly.sesssion.timeout.minutes", 60)));
       String tokenBase64 = Base64.getEncoder().encodeToString(token.getBytes(StandardCharsets.UTF_8));
 
       rc.response().headers().add(SET_COOKIE, Cookie.cookie("session_token", tokenBase64)
@@ -265,7 +283,7 @@ public class PasswordOnlyAuthenticator implements Security {
           .setSecure(absoluteContext(config::getString, rc).startsWith("https")).encode());
       rc.response().putHeader("content-type", "application/json").end(new JsonObject()
           .put("action", "redirect")
-          .put("url", "/app/").encodePrettily() + '\n');
+          .put("url", loginDestPath).encodePrettily() + '\n');
     } else {
       rc.response().headers()
           .add(SET_COOKIE, Cookie.cookie("session_token", "").setMaxAge(0).encode());

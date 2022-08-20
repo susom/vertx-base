@@ -19,9 +19,8 @@ import com.github.susom.database.DatabaseProviderVertx;
 import com.github.susom.database.DatabaseProviderVertx.Builder;
 import com.github.susom.vertx.base.AuthenticatedUser;
 import com.github.susom.vertx.base.DatabaseHealthCheck;
-import com.github.susom.vertx.base.PasswordOnlyAuthenticator;
-import com.github.susom.vertx.base.PasswordOnlyValidator;
 import com.github.susom.vertx.base.Security;
+import com.github.susom.vertx.base.SecurityImpl;
 import com.github.susom.vertx.base.StrictFileHandler;
 import com.github.susom.vertx.base.StrictResourceHandler;
 import com.github.susom.vertx.base.Valid;
@@ -30,8 +29,6 @@ import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import java.security.SecureRandom;
-import java.util.HashSet;
-import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -52,9 +49,8 @@ public class SampleMain {
           .value("database.url", "jdbc:hsqldb:file:target/hsqldb;shutdown=true")
           .value("database.user", "SA")
           .value("database.password", "")
-          .value("listen.url", "http://localhost:8877")
-          .value("public.url", "http://localhost:8877")
-          .value("jwt.secret", "lskdjfoiweyriugo389yru")
+          .value("listen.url", "http://localhost:8888")
+          .value("public.url", "http://localhost:8888")
           .value("insecure.fake.security", "yes")
           .value("insecure.log.full.requests", "yes")
           .value("security.authenticator", "saml")
@@ -82,18 +78,7 @@ public class SampleMain {
 //          .rootIndex("sample.nocache.html")
       );
 
-//      Security security = new SecurityImpl(vertx, root, random, config);
-      PasswordOnlyValidator validator = password -> {
-        if ("testy".equals(password)) {
-          Set<String> authority = new HashSet<>();
-          authority.add("service:secret");
-          authority.add("service:secret:message:1000");
-          authority.add("service:secret:message:1001");
-          return new AuthenticatedUser("testy", "boo", "Testy Testerson", authority);
-        }
-        return null;
-      };
-      Security security = new PasswordOnlyAuthenticator(vertx, root, random, validator, config);
+      Security security = new SecurityImpl(vertx, root, random, config);
       Router sub = security.authenticatedRouter("/app");
       sub.get("/api/v1/secret").handler(security.requireAuthority("service:secret"));
       sub.get("/api/v1/secret").handler(rc -> {
@@ -125,7 +110,7 @@ public class SampleMain {
       new DatabaseHealthCheck(vertx, db, config).addStatusHandlers(root);
 
       // Start the server
-      vertx.createHttpServer().requestHandler(root).listen(8877, "localhost", h -> {
+      vertx.createHttpServer().requestHandler(root).listen(8888, "localhost", h -> {
         if (h.succeeded()) {
           int port = h.result().actualPort();
           log.info("Started server on port " + port + ":\n    http://localhost:" + port + "/app" );
