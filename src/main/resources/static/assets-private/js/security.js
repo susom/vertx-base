@@ -94,11 +94,15 @@ $(function() {
         if (xhr.getResponseHeader("WWW-Authenticate").match(/Redirect .+/)) {
           // By convention, we use "Redirect https://..." to tell the client where to
           // redirect for an OpenId Connect authentication
-          if (window.location.search || window.location.hash) {
+          let loginUrl = xhr.getResponseHeader("WWW-Authenticate").slice(9);
+          if (loginUrl.slice(-10) === "/{request}") {
+            loginUrl = loginUrl.slice(0, -10) + window.location.pathname + window.location.search + window.location.hash;
+          } else if (window.location.search || window.location.hash) {
+            alert("loginUrl: " + loginUrl + "\n loginUrl.slice(-10): " + loginUrl.slice(-10));
             // The login redirect will lose our query string, so stash it temporarily
             window.name = "windowId:" + windowId + ";q=" + window.location.search + window.location.hash;
           }
-          window.location.href = xhr.getResponseHeader("WWW-Authenticate").substr(9);
+          window.location.href = loginUrl;
         } else {
           login();
         }

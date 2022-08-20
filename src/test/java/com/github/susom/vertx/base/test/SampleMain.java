@@ -28,12 +28,7 @@ import com.github.susom.vertx.base.VertxBase;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
-import java.io.FilePermission;
-import java.net.SocketPermission;
 import java.security.SecureRandom;
-import java.security.SecurityPermission;
-import java.util.PropertyPermission;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -49,24 +44,6 @@ public class SampleMain {
     try {
       initializeLogging();
       redirectConsoleToLog();
-
-      startSecurityManager(
-          // For serving our content
-          new SocketPermission("*:8888", "listen,resolve"),
-          // For connecting to the fake security server (embedded)
-          new SocketPermission("localhost:8888", "connect,resolve"),
-          // These two are for hsqldb to store its database files
-          new FilePermission(workDir() + "/target", "read,write,delete"),
-          new FilePermission(workDir() + "/target/-", "read,write,delete"),
-          new FilePermission(workDir() + "/src", "read"),
-          new FilePermission(workDir() + "/src/-", "read"),
-          // Figure out which of these to keep
-          new FilePermission(workDir() + "/conf", "read,write"),
-          new FilePermission(workDir() + "/conf/-", "read,write"),
-          new FilePermission(workDir() + "/file-uploads", "read,write"),
-          new SecurityPermission("org.apache.xml.security.register"),
-          new PropertyPermission("org.apache.xml.security.ignoreLineBreaks", "write")
-      );
 
       Config config = Config.from()
           .value("database.url", "jdbc:hsqldb:file:target/hsqldb;shutdown=true")
