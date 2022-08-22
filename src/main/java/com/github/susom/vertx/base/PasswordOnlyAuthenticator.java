@@ -40,7 +40,6 @@ import org.owasp.encoder.Encode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
-import org.springframework.util.FileCopyUtils;
 
 import static com.github.susom.vertx.base.VertxBase.absoluteContext;
 import static io.vertx.core.http.HttpHeaders.SET_COOKIE;
@@ -65,8 +64,16 @@ public class PasswordOnlyAuthenticator implements Security {
 
     String footer = config.getString("passwordonly.message.footer");
     footer = footer == null ? "" : footer;
-    try (Reader reader = new InputStreamReader(Objects.requireNonNull(getClass().getResourceAsStream("/static/password-only-authentication/password-only.nocache.html")), UTF_8)) {
-      loginpageTemplate = FileCopyUtils.copyToString(reader)
+    try (Reader reader = new InputStreamReader(Objects.requireNonNull(
+        getClass().getResourceAsStream("/static/password-only-authentication/password-only.nocache.html"),
+        "Could not load from classpath: /static/password-only-authentication/password-only.nocache.html"), UTF_8)) {
+      StringBuilder builder = new StringBuilder();
+      char[] buffer = new char[8192];
+      int read;
+      while ((read = reader.read(buffer, 0, buffer.length)) > 0) {
+        builder.append(buffer, 0, read);
+      }
+      loginpageTemplate = builder.toString()
           .replaceAll("HEADER_MESSAGE", Encode.forHtml(config.getString("passwordonly.message.header", "Enter your password to access this site.")))
           .replaceAll("LABEL_MESSAGE", Encode.forHtml(config.getString("passwordonly.message.label", "Password:")))
           .replaceAll("PLACEHOLDER_MESSAGE", Encode.forHtml(config.getString("passwordonly.message.placeholder", "Your password")))
