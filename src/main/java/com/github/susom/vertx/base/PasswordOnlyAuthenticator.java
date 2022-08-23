@@ -64,9 +64,9 @@ public class PasswordOnlyAuthenticator implements Security {
 
     String footer = config.getString("passwordonly.message.footer");
     footer = footer == null ? "" : footer;
+    String resource = config.getString("passwordonly.template.resource", "/static/password-only-authentication/password-only.nocache.html");
     try (Reader reader = new InputStreamReader(Objects.requireNonNull(
-        getClass().getResourceAsStream("/static/password-only-authentication/password-only.nocache.html"),
-        "Could not load from classpath: /static/password-only-authentication/password-only.nocache.html"), UTF_8)) {
+        getClass().getResourceAsStream(resource), "Could not load from classpath: " + resource), UTF_8)) {
       StringBuilder builder = new StringBuilder();
       char[] buffer = new char[8192];
       int read;
