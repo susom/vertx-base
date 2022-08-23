@@ -27,14 +27,13 @@ import io.vertx.ext.auth.jwt.JWTAuthOptions;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.Reader;
 import java.net.URISyntaxException;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.security.SecureRandom;
 import java.util.Base64;
 import java.util.HashSet;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import org.owasp.encoder.Encode;
@@ -44,6 +43,7 @@ import org.slf4j.MDC;
 
 import static com.github.susom.vertx.base.VertxBase.absoluteContext;
 import static io.vertx.core.http.HttpHeaders.SET_COOKIE;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class PasswordOnlyAuthenticator implements Security {
   private static final Logger log = LoggerFactory.getLogger(PasswordOnlyAuthenticator.class);
@@ -62,23 +62,29 @@ public class PasswordOnlyAuthenticator implements Security {
     this.validator = validator;
     this.config = Config.from().custom(cfg).get();
 
-    URL resource = getClass().getResource("/static/password-only-authentication/password-only.nocache.html");
-    if (resource == null) {
-      throw new RuntimeException("Unable to locate password-only.nocache.html in the classpath");
-    }
     String footer = config.getString("passwordonly.message.footer");
     footer = footer == null ? "" : footer;
-    loginpageTemplate = new String(Files.readAllBytes(Paths.get(resource.toURI())), StandardCharsets.UTF_8)
-        .replaceAll("HEADER_MESSAGE", Encode.forHtml(config.getString("passwordonly.message.header", "Enter your password to access this site.")))
-        .replaceAll("LABEL_MESSAGE", Encode.forHtml(config.getString("passwordonly.message.label", "Password:")))
-        .replaceAll("PLACEHOLDER_MESSAGE", Encode.forHtml(config.getString("passwordonly.message.placeholder", "Your password")))
-        .replaceAll("BUTTON_MESSAGE", Encode.forHtml(config.getString("passwordonly.message.button", "Login")))
-        .replaceAll("FOOTER_MESSAGE", Encode.forHtml(footer));
+    String resource = config.getString("passwordonly.template.resource", "/static/password-only-authentication/password-only.nocache.html");
+    try (Reader reader = new InputStreamReader(Objects.requireNonNull(
+        getClass().getResourceAsStream(resource), "Could not load from classpath: " + resource), UTF_8)) {
+      StringBuilder builder = new StringBuilder();
+      char[] buffer = new char[8192];
+      int read;
+      while ((read = reader.read(buffer, 0, buffer.length)) > 0) {
+        builder.append(buffer, 0, read);
+      }
+      loginpageTemplate = builder.toString()
+          .replaceAll("HEADER_MESSAGE", Encode.forHtml(config.getString("passwordonly.message.header", "Enter your password to access this site.")))
+          .replaceAll("LABEL_MESSAGE", Encode.forHtml(config.getString("passwordonly.message.label", "Password:")))
+          .replaceAll("PLACEHOLDER_MESSAGE", Encode.forHtml(config.getString("passwordonly.message.placeholder", "Your password")))
+          .replaceAll("BUTTON_MESSAGE", Encode.forHtml(config.getString("passwordonly.message.button", "Login")))
+          .replaceAll("FOOTER_MESSAGE", Encode.forHtml(footer));
+    }
 
     jwt = JWTAuth.create(vertx, new JWTAuthOptions()
         .addPubSecKey(new PubSecKeyOptions()
             .setAlgorithm("HS256")
-            .setPublicKey(config.getString("passwordonly.jwt.secret"))
+            .setPublicKey(config.getStringOrThrow("passwordonly.jwt.secret"))
             .setSymmetric(true)));
   }
 
@@ -275,7 +281,7 @@ public class PasswordOnlyAuthenticator implements Security {
           new JWTOptions()
               .setAlgorithm("HS256")
               .setExpiresInMinutes(config.getInteger("passwordonly.sesssion.timeout.minutes", 60)));
-      String tokenBase64 = Base64.getEncoder().encodeToString(token.getBytes(StandardCharsets.UTF_8));
+      String tokenBase64 = Base64.getEncoder().encodeToString(token.getBytes(UTF_8));
 
       rc.response().headers().add(SET_COOKIE, Cookie.cookie("session_token", tokenBase64)
           .setHttpOnly(true)
