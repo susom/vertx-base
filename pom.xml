@@ -5,7 +5,7 @@
   <groupId>com.github.susom</groupId>
   <artifactId>vertx-base</artifactId>
   <packaging>jar</packaging>
-  <version>2.4-SNAPSHOT</version>
+  <version>2.5-SNAPSHOT</version>
 
   <name>${project.groupId}:${project.artifactId}</name>
   <description>Useful extensions to Vert.x for web applications.</description>
