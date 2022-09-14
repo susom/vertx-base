@@ -22,6 +22,7 @@ import com.github.susom.vertx.base.Security;
 import com.github.susom.vertx.base.StrictResourceHandler;
 import com.github.susom.vertx.base.Valid;
 import com.github.susom.vertx.base.VertxBase;
+import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
@@ -68,9 +69,9 @@ public class PasswordOnlySample {
           authority.add("service:secret");
           authority.add("service:secret:message:1000");
           authority.add("service:secret:message:1001");
-          return new AuthenticatedUser("testy", "boo", "Testy Testerson", authority);
+          return Future.succeededFuture(new AuthenticatedUser("testy", "boo", "Testy Testerson", authority));
         }
-        return null;
+        return Future.failedFuture("Password not valid");
       };
       Security security = new PasswordOnlyAuthenticator(vertx, root, random, validator, config);
 

@@ -14,6 +14,8 @@
  */
 package com.github.susom.vertx.base;
 
+import io.vertx.core.Future;
+
 public interface PasswordOnlyValidator {
   /**
    * Check a provided password, and return a proper authenticated user for it,
@@ -22,5 +24,5 @@ public interface PasswordOnlyValidator {
    * @param password the password to verify, or null/empty string
    * @return a valid authenticated user, or null if the password was not valid
    */
-  AuthenticatedUser authenticate(String password);
+  Future<AuthenticatedUser> authenticate(String password);
 }
