@@ -29,7 +29,6 @@ import io.vertx.ext.web.RoutingContext;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;
-import java.net.URISyntaxException;
 import java.security.SecureRandom;
 import java.util.Base64;
 import java.util.HashSet;
@@ -55,7 +54,7 @@ public class PasswordOnlyAuthenticator implements Security {
   private final JWTAuth jwt;
   private final String loginpageTemplate;
 
-  public PasswordOnlyAuthenticator(Vertx vertx, Router root, SecureRandom random, PasswordOnlyValidator validator, Function<String, String> cfg) throws URISyntaxException, IOException {
+  public PasswordOnlyAuthenticator(Vertx vertx, Router root, SecureRandom random, PasswordOnlyValidator validator, Function<String, String> cfg) throws IOException {
     this.vertx = vertx;
     this.root = root;
     this.secureRandom = random;
@@ -276,20 +275,29 @@ public class PasswordOnlyAuthenticator implements Security {
 
     validator.authenticate(loginJson.getString("password"))
         .onSuccess(user -> {
-          String token = jwt.generateToken(
-              user.principal(),
-              new JWTOptions()
-                  .setAlgorithm("HS256")
-                  .setExpiresInMinutes(config.getInteger("passwordonly.sesssion.timeout.minutes", 60)));
-          String tokenBase64 = Base64.getEncoder().encodeToString(token.getBytes(UTF_8));
+          if (user == null) {
+            log.debug("User entered incorrect password");
+            rc.response().headers()
+                .add(SET_COOKIE, Cookie.cookie("session_token", "").setMaxAge(0).encode());
+            rc.response().setStatusCode(401)
+                .putHeader("content-type", "application/json")
+                .end(new JsonObject().put("message", "Incorrect password.").encode());
+          } else {
+            String token = jwt.generateToken(
+                user.principal(),
+                new JWTOptions()
+                    .setAlgorithm("HS256")
+                    .setExpiresInMinutes(config.getInteger("passwordonly.sesssion.timeout.minutes", 60)));
+            String tokenBase64 = Base64.getEncoder().encodeToString(token.getBytes(UTF_8));
 
-          rc.response().headers().add(SET_COOKIE, Cookie.cookie("session_token", tokenBase64)
-              .setHttpOnly(true)
-              .setPath(rc.mountPoint() + "/")
-              .setSecure(absoluteContext(config::getString, rc).startsWith("https")).encode());
-          rc.response().putHeader("content-type", "application/json").end(new JsonObject()
-              .put("action", "redirect")
-              .put("url", finalLoginDestPath).encodePrettily() + '\n');
+            rc.response().headers().add(SET_COOKIE, Cookie.cookie("session_token", tokenBase64)
+                .setHttpOnly(true)
+                .setPath(rc.mountPoint() + "/")
+                .setSecure(absoluteContext(config::getString, rc).startsWith("https")).encode());
+            rc.response().putHeader("content-type", "application/json").end(new JsonObject()
+                .put("action", "redirect")
+                .put("url", finalLoginDestPath).encodePrettily() + '\n');
+          }
         })
         .onFailure(throwable -> {
           log.error("Error authenticating the user", throwable);
@@ -297,7 +305,7 @@ public class PasswordOnlyAuthenticator implements Security {
               .add(SET_COOKIE, Cookie.cookie("session_token", "").setMaxAge(0).encode());
           rc.response().setStatusCode(401)
               .putHeader("content-type", "application/json")
-              .end(new JsonObject().put("message", "Incorrect password.").encode());
+              .end(new JsonObject().put("message", "Unable to check the password.").encode());
         });
   }
 }
