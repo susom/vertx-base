@@ -63,16 +63,18 @@ public class PasswordOnlySample {
           .get();
 
       Router root = rootRouter(vertx, "/app");
-      PasswordOnlyValidator validator = password -> {
+      PasswordOnlyValidator validator = password -> Future.future(promise -> {
         if ("testy".equals(password)) {
           Set<String> authority = new HashSet<>();
           authority.add("service:secret");
           authority.add("service:secret:message:1000");
           authority.add("service:secret:message:1001");
-          return Future.succeededFuture(new AuthenticatedUser("testy", "boo", "Testy Testerson", authority));
+          promise.complete(new AuthenticatedUser("testy", "boo", "Testy Testerson", authority));
+        } else if ("oops".equals(password)) {
+          throw new RuntimeException("Oops");
         }
-        return Future.failedFuture("Password not valid");
-      };
+        promise.complete(null);
+      });
       Security security = new PasswordOnlyAuthenticator(vertx, root, random, validator, config);
 
       // A static website with public and private content
