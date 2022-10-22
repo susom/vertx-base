@@ -78,8 +78,7 @@ public class IAPAuthenticator implements Security {
   private final CookieHandler cookieHandler;
   private final Handler<RoutingContext> authenticateOptional;
   private final Handler<RoutingContext> authenticatedJWTTokenHandler;
-  private final String  projectNumber ;
-  private final String backendServiceId ;
+  private final String aud;
   private static final String PUBLIC_KEY_VERIFICATION_URL = "https://www.gstatic.com/iap/verify/public_key-jwk";
   private static final String IAP_ISSUER_URL = "https://cloud.google.com/iap";
   private final Map<String, JWK> keyCache = new HashMap<>();
@@ -91,14 +90,17 @@ public class IAPAuthenticator implements Security {
     this.secureRandom = secureRandom;
     config = Config.from().custom(cfg::apply).get();
 
-     /**
-      * The below two properties are used for the Google Identity Aware Proxy (IAP) authentication.
-      * This is used to secure the application with signed Cloud IAP headers.
-      * GCP project number in which the IAP protected URL is configured.
-      * GCP backend service ID where the IAP protected URL ia mapped.
-      */
-    projectNumber = config.getStringOrThrow("iap.project.number");
-    backendServiceId = config.getStringOrThrow("iap.backend.service.id");
+    /*
+     * The below two properties are used for the Google Identity Aware Proxy (IAP) authentication.
+     * This is used to secure the application with signed Cloud IAP headers.
+     * GCP project number in which the IAP protected URL is configured.
+     * GCP backend service ID where the IAP protected URL ia mapped.
+     */
+    String projectNumber = config.getStringOrThrow("iap.project.number");
+    String backendServiceId = config.getStringOrThrow("iap.backend.service.id");
+    aud = String.format("/projects/%s/global/backendServices/%s",
+                        Long.toUnsignedString(Long.parseLong(projectNumber)),
+                        Long.toUnsignedString(Long.parseLong(backendServiceId)));
 
     scheduleSessionReaper(vertx);
 
@@ -147,16 +149,11 @@ public class IAPAuthenticator implements Security {
       if (rc.user() == null) {
         if (rc.request().getHeader("x-goog-iap-jwt-assertion") != null) {
           try {
-            //log.trace("Project number : " + projectNumber);
-            //log.trace("Backend Service Id : " + backendServiceId);
             if ((rc.request().getHeader("x-goog-iap-jwt-assertion") != null)) {
-              email = verifyJwt((rc.request().getHeader("x-goog-iap-jwt-assertion")),
-                      String.format("/projects/%s/global/backendServices/%s",
-                      Long.toUnsignedString(Long.parseLong(projectNumber)), Long.toUnsignedString(Long.parseLong(backendServiceId))));
+              email = verifyJwt((rc.request().getHeader("x-goog-iap-jwt-assertion")), aud);
             }
           } catch (Exception e) {
-            log.trace(e.getMessage());
-            e.printStackTrace();
+            log.error("Unable to verify JWT token with aud {}", aud, e);
           }
         }
         if (email != null) {
