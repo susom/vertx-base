@@ -38,7 +38,7 @@ public class MetricsHandler implements Handler<RoutingContext> {
   private final boolean dumpRequest;
   private final String requestIdPrefix;
   private long requestId = 1;
-  private List<String> headersToLog = new ArrayList<>();
+  private final List<String> headersToLog = new ArrayList<>();
 
   public MetricsHandler(SecureRandom secureRandom) {
     this(secureRandom, false);
@@ -109,12 +109,10 @@ public class MetricsHandler implements Handler<RoutingContext> {
       if (query != null && query.length() > 0) {
         message.append("?").append(query);
       }
-      if (headersToLog != null) {
-        for (String header : headersToLog) {
-          String headerValue = rc.request().getHeader(header);
-          if (headerValue != null) {
-            message.append("\n    ").append(header).append(": ").append(headerValue);
-          }
+      for (String header : headersToLog) {
+        String headerValue = rc.request().getHeader(header);
+        if (headerValue != null) {
+          message.append("\n    ").append(header).append(": ").append(headerValue);
         }
       }
       log.debug(message.toString());
@@ -131,12 +129,19 @@ public class MetricsHandler implements Handler<RoutingContext> {
         if (dumpRequest) {
           buf.append("\nHeaders: ").append(rc.request().headers().entries());
           String contentType = rc.request().headers().get("Content-Type");
-          if (contentType != null && contentType.contains("application/json")) {
-            JsonObject body = new JsonObject(rc.getBodyAsString());
-            if (body.containsKey("password")) {
-              body.put("password", "xxx");
+          if (contentType != null) {
+            String body = rc.getBodyAsString();
+            if (body == null) {
+              buf.append("\nBody: null");
+            } else if (contentType.contains("application/json")) {
+              JsonObject bodyJson = new JsonObject(body);
+              if (bodyJson.containsKey("password")) {
+                bodyJson.put("password", "xxx");
+              }
+              buf.append("\nBody: ").append(bodyJson.encodePrettily());
+            } else {
+              buf.append("\nBody length: ").append(body.length());
             }
-            buf.append("\nBody: ").append(body.encodePrettily());
           }
         }
         log.debug(buf.toString());
