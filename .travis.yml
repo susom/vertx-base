@@ -21,6 +21,7 @@ stages:
 before_install:
   # Ensure the settings we want to use are in place before running the default mvn install
   - cp ./travis/maven-settings.xml $HOME/.m2/settings.xml
+  - sed -i "s/-SNAPSHOT/-build-$TRAVIS_BUILD_NUMBER/" pom.xml
   # Disable SourceClear except on scheduled builds
   - |
     if [ "$TRAVIS_EVENT_TYPE" != "cron" ]
