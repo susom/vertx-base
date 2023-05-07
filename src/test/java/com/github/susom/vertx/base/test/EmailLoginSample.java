@@ -57,14 +57,18 @@ public class EmailLoginSample {
           .value("public.url", "http://localhost:" + port)
           // This secret is used for siging the JWT session token
           .value("email.jwt.secret", "lskdjfoiweyriugo389yru")
-          .value("email.sesssion.timeout.minutes", "1")
+          .value("email.session.timeout.minutes", "1")
           // If you want to customize the login screen
 //          .value("email.message.header", "Email, please")
 //          .value("email.message.label", "Your email:")
 //          .value("email.message.placeholder", "An email address")
 //          .value("email.message.footer", "Be sure you put in the email you signed up with.")
 //          .value("email.message.instructions", "Check your email.")
-          .get();
+          .value("mailgun.subject", "Custom subject")
+          .value("mailgun.text", "Here is the link:\n\n[LINK]")
+          .value("mailgun.html", "<html><body><p>Here is the link:</p><p><a href='[LINK]'>Login</a></p></body></html>")
+          // In local.properties set mailgun.domain, mailgun.api.key, and mailgun.from
+          .propertyFile("local.properties").get();
 
       Router root = rootRouter(vertx, "/app");
       EmailLoginValidator validator = new EmailLoginValidator() {

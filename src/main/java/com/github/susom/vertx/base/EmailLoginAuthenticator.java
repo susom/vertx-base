@@ -15,9 +15,13 @@
 package com.github.susom.vertx.base;
 
 import com.github.susom.database.Config;
+import com.github.susom.database.Metric;
+import io.netty.handler.codec.http.QueryStringEncoder;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.Cookie;
+import io.vertx.core.http.HttpClient;
+import io.vertx.core.http.HttpClientOptions;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.auth.JWTOptions;
@@ -53,7 +57,12 @@ public class EmailLoginAuthenticator implements Security {
   private final EmailLoginValidator validator;
   private final Config config;
   private final JWTAuth jwt;
-  private final String loginpageTemplate;
+  private final String loginPageTemplate;
+  private final HttpClient httpClient;
+  private final String mailgunHost;
+  private final String mailgunDomain;
+  private final String mailgunApiKey;
+  private final String mailgunFrom;
 
   public EmailLoginAuthenticator(Vertx vertx, Router root, SecureRandom random, EmailLoginValidator validator, Function<String, String> cfg) throws IOException {
     this.vertx = vertx;
@@ -73,7 +82,7 @@ public class EmailLoginAuthenticator implements Security {
       while ((read = reader.read(buffer, 0, buffer.length)) > 0) {
         builder.append(buffer, 0, read);
       }
-      loginpageTemplate = builder.toString()
+      loginPageTemplate = builder.toString()
           .replaceAll("HEADER_MESSAGE", Encode.forHtml(config.getString("email.message.header", "Enter your email address to access this site.")))
           .replaceAll("LABEL_MESSAGE", Encode.forHtml(config.getString("email.message.label", "Email address:")))
           .replaceAll("PLACEHOLDER_MESSAGE", Encode.forHtml(config.getString("email.message.placeholder", "you@example.com")))
@@ -87,6 +96,17 @@ public class EmailLoginAuthenticator implements Security {
             .setAlgorithm("HS256")
             .setPublicKey(config.getStringOrThrow("email.jwt.secret"))
             .setSymmetric(true)));
+
+    httpClient = vertx.createHttpClient(new HttpClientOptions().setSsl(true));
+
+    mailgunHost = config.getString("mailgun.host", "api.mailgun.net");
+    mailgunDomain = config.getString("mailgun.domain");
+    mailgunApiKey = config.getString("mailgun.api.key");
+    mailgunFrom = config.getString("mailgun.from");
+
+    if (mailgunDomain == null || mailgunApiKey == null || mailgunFrom == null) {
+      log.warn("Config mailgun.domain, mailgun.api.key, or mailgun.from is not set so we will log emails instead of sending");
+    }
   }
 
   @Override
@@ -123,7 +143,7 @@ public class EmailLoginAuthenticator implements Security {
                   user.principal(),
                   new JWTOptions()
                       .setAlgorithm("HS256")
-                      .setExpiresInMinutes(config.getInteger("email.sesssion.timeout.minutes", 60)));
+                      .setExpiresInMinutes(config.getInteger("email.session.timeout.minutes", 60)));
               String tokenBase64 = Base64.getEncoder().encodeToString(token.getBytes(UTF_8));
 
               rc.response().headers().add(SET_COOKIE, Cookie.cookie("session_token", tokenBase64)
@@ -135,13 +155,13 @@ public class EmailLoginAuthenticator implements Security {
             }
           })
           .onFailure(throwable -> {
-            String loginpage = loginpageTemplate.replaceAll("BASE_PATH", rc.mountPoint());
+            String loginpage = loginPageTemplate.replaceAll("BASE_PATH", rc.mountPoint());
             rc.response().putHeader("content-type", "text/html").end(loginpage);
           });
     }).failureHandler(VertxBase::jsonApiFail);
 
     router.get("/auth/*").handler(rc -> {
-      String loginpage = loginpageTemplate.replaceAll("BASE_PATH", rc.mountPoint());
+      String loginpage = loginPageTemplate.replaceAll("BASE_PATH", rc.mountPoint());
       rc.response().putHeader("content-type", "text/html").end(loginpage);
     }).failureHandler(VertxBase::jsonApiFail);
 
@@ -310,7 +330,7 @@ public class EmailLoginAuthenticator implements Security {
   private void sendEmail(RoutingContext rc) {
     JsonObject loginJson = Valid.nonNull(rc.getBodyAsJson(), "No body");
     String loginDestPath = loginJson.getString("destpath", rc.mountPoint());
-    String loginUrl = rc.mountPoint() + "/auth";
+    String loginUrl = rc.mountPoint() + "/auth/";
     if (loginDestPath.startsWith(loginUrl)) {
       loginDestPath = loginDestPath.substring(loginUrl.length());
     }
@@ -319,9 +339,62 @@ public class EmailLoginAuthenticator implements Security {
     String email = loginJson.getString("email");
     validator.generateEmailToken(email)
         .onSuccess(token -> {
-          // TODO implement this
-          log.warn("Here is your email:\nTo: {}\nLink: {}/t/{}/app?a=b#c", email, absoluteContext(config::getString, rc), token);
-          rc.response().setStatusCode(200).end();
+          String link = absoluteContext(config::getString, rc) + "/t/" + token + "/" + finalLoginDestPath;
+
+          if (mailgunDomain == null || mailgunApiKey == null || mailgunFrom == null) {
+            log.warn("Here is your email:\nTo: {}\nLink: {}", email, link);
+            rc.response().setStatusCode(200).end();
+            return;
+          }
+
+          Metric metric = new Metric(log.isDebugEnabled());
+          QueryStringEncoder enc = new QueryStringEncoder("");
+          enc.addParam("from", mailgunFrom);
+          enc.addParam("to", email);
+          enc.addParam("subject", config.getString("mailgun.subject", "The login link you requested"));
+          String text = config.getString("mailgun.text");
+          String html = config.getString("mailgun.html");
+          if (text == null && html == null) {
+            text = "Here is the login link you requested:\n\n[LINK]\n\nDo not forward or share with anyone.";
+          }
+          if (text != null) {
+            enc.addParam("text", text.replace("[LINK]", link));
+          }
+          if (html != null) {
+            enc.addParam("html", html.replace("[LINK]", link));
+          }
+          String encodedBody = enc.toString().substring(1);
+          httpClient.post(443, mailgunHost, "/v3/" + mailgunDomain + "/messages")
+              .putHeader("Authorization", "Basic " + Base64.getEncoder().encodeToString(("api:" + mailgunApiKey).getBytes(UTF_8)))
+              .putHeader("content-type", "application/x-www-form-urlencoded")
+              .handler(response -> {
+                try {
+                  metric.checkpoint("response", response.statusCode());
+                  response.bodyHandler(body -> {
+                    int responseCode = response.statusCode();
+                    if (responseCode == 200) {
+                      log.debug("Mail sent successfully {} to {}\n{}", metric.getMessage(), email, body);
+                      rc.response().setStatusCode(200).end();
+                    } else {
+                      log.debug("Mail send failed {} with message `{}` to {}\n{}", metric.getMessage(), response.statusMessage(), email, body);
+                      rc.response().setStatusCode(401)
+                          .putHeader("content-type", "application/json")
+                          .end(new JsonObject().put("message", "Unable to send email right now.").encode());
+                    }
+                  });
+                } catch (Exception e) {
+                  log.error("Exception sending email: " + metric.getMessage(), e);
+                  rc.response().setStatusCode(401)
+                      .putHeader("content-type", "application/json")
+                      .end(new JsonObject().put("message", "Unable to send email right now.").encode());
+                }
+              }).exceptionHandler(exception -> {
+                log.error("Error sending email", exception);
+                rc.response().setStatusCode(401)
+                    .putHeader("content-type", "application/json")
+                    .end(new JsonObject().put("message", "Unable to send email right now.").encode());
+              })
+              .end(encodedBody);
         })
         .onFailure(throwable -> {
           log.error("Error creating email token for the user", throwable);
