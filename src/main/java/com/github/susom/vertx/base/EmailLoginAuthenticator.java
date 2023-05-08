@@ -146,10 +146,7 @@ public class EmailLoginAuthenticator implements Security {
                       .setExpiresInMinutes(config.getInteger("email.session.timeout.minutes", 60)));
               String tokenBase64 = Base64.getEncoder().encodeToString(token.getBytes(UTF_8));
 
-              rc.response().headers().add(SET_COOKIE, Cookie.cookie("session_token", tokenBase64)
-                  .setHttpOnly(true)
-                  .setPath(rc.mountPoint() + "/")
-                  .setSecure(absoluteContext(config::getString, rc).startsWith("https")).encode());
+              setSessionCookie(rc, tokenBase64);
               log.debug("Token valid - redirecting to destination: {}", wildcard);
               rc.response().setStatusCode(302).putHeader("Location", absoluteRoot(config::getString) + wildcard).end();
             }
@@ -227,8 +224,7 @@ public class EmailLoginAuthenticator implements Security {
           MDC.remove("windowId");
         }
 
-        Cookie sessionCookie = rc.getCookie("session_token");
-
+        Cookie sessionCookie = rc.getCookie("email_session");
         if (sessionCookie != null) {
           String decoded = new String(Base64.getDecoder().decode(sessionCookie.getValue()));
           jwt.authenticate(new JsonObject().put("jwt", decoded), token -> {
@@ -269,7 +265,7 @@ public class EmailLoginAuthenticator implements Security {
   }
 
   private void sendRedirectOrDeny(RoutingContext rc) {
-    rc.response().headers().add(SET_COOKIE, Cookie.cookie("session_token", "").setMaxAge(0).encode());
+    removeSessionCookie(rc);
 
     String loginUrl = absoluteContext(config::getString, rc) + "/auth";
     if ("XMLHttpRequest".equals(rc.request().getHeader("X-Requested-With"))) {
@@ -316,13 +312,8 @@ public class EmailLoginAuthenticator implements Security {
         return;
       }
 
-      rc.response().headers()
-          .add(SET_COOKIE, Cookie.cookie("session_token", "")
-              .setMaxAge(0)
-              .setHttpOnly(true)
-              .setPath(rc.mountPoint() + "/")
-              .setSecure(absoluteContext(config::getString, rc).startsWith("https")).encode())
-          .add("location", VertxBase.absolutePath(config::getString, rc) + "?done=yes");
+      removeSessionCookie(rc);
+      rc.response().headers().add("Location", VertxBase.absolutePath(config::getString, rc) + "?done=yes");
       rc.response().setStatusCode(302).end();
     };
   }
@@ -398,11 +389,40 @@ public class EmailLoginAuthenticator implements Security {
         })
         .onFailure(throwable -> {
           log.error("Error creating email token for the user", throwable);
-          rc.response().headers()
-              .add(SET_COOKIE, Cookie.cookie("session_token", "").setMaxAge(0).encode());
+          removeSessionCookie(rc);
           rc.response().setStatusCode(401)
               .putHeader("content-type", "application/json")
               .end(new JsonObject().put("message", "Unable to check the password.").encode());
         });
+  }
+
+  private void setSessionCookie(RoutingContext rc, String tokenBase64) {
+    rc.response().headers().add(SET_COOKIE, Cookie.cookie("email_session", tokenBase64)
+        .setHttpOnly(true)
+        .setPath(rc.mountPoint() + "/")
+        .setSecure(absoluteContext(config::getString, rc).startsWith("https")).encode());
+  }
+
+  private void removeSessionCookie(RoutingContext rc) {
+    // Be paranoid to make sure all cookies with our name are deleted regardless of the path
+    // (prevents getting "stuck" because an invalid cookie continues to be presented if we
+    // miss the path it has)
+    String path = "";
+    for (String pathComponent : rc.request().path().split("/")) {
+      if (pathComponent.length() > 0) {
+        path += pathComponent;
+        removeSessionCookie(rc, path);
+      }
+      path += "/";
+      removeSessionCookie(rc, path);
+    }
+  }
+
+  private void removeSessionCookie(RoutingContext rc, String path) {
+    rc.response().headers().add(SET_COOKIE, Cookie.cookie("email_session", "")
+        .setMaxAge(0)
+        .setHttpOnly(true)
+        .setPath(path)
+        .setSecure(absoluteContext(config::getString, rc).startsWith("https")).encode());
   }
 }
