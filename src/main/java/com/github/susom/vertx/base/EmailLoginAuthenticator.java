@@ -71,8 +71,12 @@ public class EmailLoginAuthenticator implements Security {
     this.validator = validator;
     this.config = Config.from().custom(cfg).get();
 
-    String footer = config.getString("email.message.footer");
-    footer = footer == null ? "" : footer;
+    String footerText = config.getString("email.message.footer.text");
+    footerText = footerText == null ? "" : footerText;
+    String footerHtml = config.getString("email.message.footer.html");
+    footerHtml = footerHtml == null ? "" : footerHtml;
+    String headerHtml = config.getString("email.message.header.html");
+    headerHtml = headerHtml == null ? "" : headerHtml;
     String resource = config.getString("email.template.resource", "/static/email-authentication/email.nocache.html");
     try (Reader reader = new InputStreamReader(Objects.requireNonNull(
         getClass().getResourceAsStream(resource), "Could not load from classpath: " + resource), UTF_8)) {
@@ -83,12 +87,14 @@ public class EmailLoginAuthenticator implements Security {
         builder.append(buffer, 0, read);
       }
       loginPageTemplate = builder.toString()
-          .replaceAll("HEADER_MESSAGE", Encode.forHtml(config.getString("email.message.header", "Enter your email address to access this site.")))
+          .replaceAll("HEADER_MESSAGE_TEXT", Encode.forHtml(config.getString("email.message.header.text", "Enter your email address to access this site.")))
+          .replaceAll("HEADER_MESSAGE_HTML", headerHtml)
           .replaceAll("LABEL_MESSAGE", Encode.forHtml(config.getString("email.message.label", "Email address:")))
           .replaceAll("PLACEHOLDER_MESSAGE", Encode.forHtml(config.getString("email.message.placeholder", "you@example.com")))
           .replaceAll("BUTTON_MESSAGE", Encode.forHtml(config.getString("email.message.button", "Send me an Email Link")))
           .replaceAll("INSTRUCTIONS", Encode.forHtml(config.getString("email.message.instructions", "An email will be sent if you entered an allowed email address.")))
-          .replaceAll("FOOTER_MESSAGE", Encode.forHtml(footer));
+          .replaceAll("FOOTER_MESSAGE_TEXT", Encode.forHtml(footerText))
+          .replaceAll("FOOTER_MESSAGE_HTML", footerHtml);
     }
 
     jwt = JWTAuth.create(vertx, new JWTAuthOptions()
@@ -364,10 +370,10 @@ public class EmailLoginAuthenticator implements Security {
                   response.bodyHandler(body -> {
                     int responseCode = response.statusCode();
                     if (responseCode == 200) {
-                      log.debug("Mail sent successfully {} to {}\n{}", metric.getMessage(), email, body);
+                      log.debug("Mail sent {} to {} response {}", metric.getMessage(), email, body.toString().trim());
                       rc.response().setStatusCode(200).end();
                     } else {
-                      log.debug("Mail send failed {} with message `{}` to {}\n{}", metric.getMessage(), response.statusMessage(), email, body);
+                      log.debug("Mail failed {} with message `{}` to {} response:\n{}", metric.getMessage(), response.statusMessage(), email, body);
                       rc.response().setStatusCode(401)
                           .putHeader("content-type", "application/json")
                           .end(new JsonObject().put("message", "Unable to send email right now.").encode());
