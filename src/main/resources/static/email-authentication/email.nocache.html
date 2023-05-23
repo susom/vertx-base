@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Login</title>
+  <link href="BASE_PATH/assets/css/bootstrap-3.3.6.min.cache.css" rel="stylesheet">
+  <style>
+    #error {
+      color: red;
+    }
+    /* For the navbar to work */
+    body {
+      padding-top: 70px;
+    }
+  </style>
+</head>
+<body>
+
+<noscript>
+  <div style="width: 22em; position: absolute; left: 50%; margin-left: -11em; color: red; background-color: white; border: 1px solid red; padding: 4px; font-family: sans-serif">
+    Your web browser must have JavaScript enabled
+    in order for this application to display correctly.
+  </div>
+</noscript>
+
+<div class="container">
+  <div class="jumbotron" id="loginContainer">
+    <p>HEADER_MESSAGE_TEXT</p>
+    HEADER_MESSAGE_HTML
+    <p id="error"></p>
+    <form action="javascript:void(0);" onsubmit="doLogin()">
+      <div class="form-group">
+        <label for="email">LABEL_MESSAGE</label>
+        <input type="email" class="form-control" name="email" id="email" placeholder="PLACEHOLDER_MESSAGE" required autofocus>
+      </div>
+      <button type="submit" id="login" class="btn btn-lg btn-primary btn-default">BUTTON_MESSAGE</button>
+    </form>
+    <p></p>
+    <p>FOOTER_MESSAGE_TEXT</p>
+    FOOTER_MESSAGE_HTML
+  </div>
+  <div class="jumbotron hide" id="instructionsContainer">
+    <p id="instructions">INSTRUCTIONS</p>
+  </div>
+</div>
+<script src="BASE_PATH/assets/js/jquery-2.2.4.min.cache.js"></script>
+<script src="BASE_PATH/assets/js/bootstrap-3.3.6.min.cache.js"></script>
+<script type="application/javascript">
+  function doLogin() {
+    var auth = {};
+    auth.email = $("#email").val();
+    auth.destpath = window.location.pathname + window.location.search + window.location.hash;
+
+    $.ajax({
+      url: "BASE_PATH/mail",
+      method: "POST",
+      data: JSON.stringify(auth),
+      dataType: "json",
+      statusCode: {
+        200: function(json) {
+          $('#loginContainer').addClass('hide');
+          $('#instructionsContainer').removeClass('hide');
+        },
+        401: function(json) {
+          $("#error").text(json.responseJSON.message);
+          $("#email").val("");
+        }
+      }
+    });
+  }
+</script>
+</body>
+</html>
