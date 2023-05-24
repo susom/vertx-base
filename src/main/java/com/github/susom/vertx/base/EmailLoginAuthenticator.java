@@ -75,8 +75,13 @@ public class EmailLoginAuthenticator implements Security {
     footerText = footerText == null ? "" : footerText;
     String footerHtml = config.getString("email.message.footer.html");
     footerHtml = footerHtml == null ? "" : footerHtml;
+    String headerText = config.getString("email.message.header.text");
+    headerText = headerText == null ? "" : headerText;
     String headerHtml = config.getString("email.message.header.html");
     headerHtml = headerHtml == null ? "" : headerHtml;
+    if (headerText.isEmpty() && headerHtml.isEmpty()) {
+      headerText = "Enter your email address to access this site.";
+    }
     String resource = config.getString("email.template.resource", "/static/email-authentication/email.nocache.html");
     try (Reader reader = new InputStreamReader(Objects.requireNonNull(
         getClass().getResourceAsStream(resource), "Could not load from classpath: " + resource), UTF_8)) {
@@ -87,7 +92,7 @@ public class EmailLoginAuthenticator implements Security {
         builder.append(buffer, 0, read);
       }
       loginPageTemplate = builder.toString()
-          .replaceAll("HEADER_MESSAGE_TEXT", Encode.forHtml(config.getString("email.message.header.text", "Enter your email address to access this site.")))
+          .replaceAll("HEADER_MESSAGE_TEXT", Encode.forHtml(headerText))
           .replaceAll("HEADER_MESSAGE_HTML", headerHtml)
           .replaceAll("LABEL_MESSAGE", Encode.forHtml(config.getString("email.message.label", "Email address:")))
           .replaceAll("PLACEHOLDER_MESSAGE", Encode.forHtml(config.getString("email.message.placeholder", "you@example.com")))
@@ -398,7 +403,7 @@ public class EmailLoginAuthenticator implements Security {
           removeSessionCookie(rc);
           rc.response().setStatusCode(401)
               .putHeader("content-type", "application/json")
-              .end(new JsonObject().put("message", "Unable to check the password.").encode());
+              .end(new JsonObject().put("message", "Unable to email the login link. Please try again later.").encode());
         });
   }
 

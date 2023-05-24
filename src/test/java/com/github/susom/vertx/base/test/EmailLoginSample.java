@@ -100,9 +100,13 @@ public class EmailLoginSample {
         @Override
         public Future<String> generateEmailToken(String email) {
           return Future.future(promise -> {
-            String token = new TokenGenerator(random).create(16);
-            tokenToEmail.put(token, email);
-            promise.complete(token);
+            if (email.equals("oops@example.com")) {
+              promise.fail("oops");
+            } else {
+              String token = new TokenGenerator(random).create(16);
+              tokenToEmail.put(token, email);
+              promise.complete(token);
+            }
           });
         }
       };
