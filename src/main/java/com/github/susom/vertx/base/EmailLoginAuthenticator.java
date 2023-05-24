@@ -403,7 +403,7 @@ public class EmailLoginAuthenticator implements Security {
           removeSessionCookie(rc);
           rc.response().setStatusCode(401)
               .putHeader("content-type", "application/json")
-              .end(new JsonObject().put("message", "Unable to check the password.").encode());
+              .end(new JsonObject().put("message", "Unable to email the login link. Please try again later.").encode());
         });
   }
 
