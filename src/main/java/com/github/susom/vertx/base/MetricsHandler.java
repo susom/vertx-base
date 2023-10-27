@@ -133,12 +133,18 @@ public class MetricsHandler implements Handler<RoutingContext> {
             String body = rc.getBodyAsString();
             if (body == null) {
               buf.append("\nBody: null");
+            } else if (body.isEmpty()) {
+              buf.append("\nBody: empty");
             } else if (contentType.contains("application/json")) {
-              JsonObject bodyJson = new JsonObject(body);
-              if (bodyJson.containsKey("password")) {
-                bodyJson.put("password", "xxx");
+              try {
+                JsonObject bodyJson = new JsonObject(body);
+                if (bodyJson.containsKey("password")) {
+                  bodyJson.put("password", "xxx");
+                }
+                buf.append("\nBody: ").append(bodyJson.encodePrettily());
+              } catch (Exception e) {
+                buf.append("\nBody: invalid json: ").append(body);
               }
-              buf.append("\nBody: ").append(bodyJson.encodePrettily());
             } else {
               buf.append("\nBody length: ").append(body.length());
             }
