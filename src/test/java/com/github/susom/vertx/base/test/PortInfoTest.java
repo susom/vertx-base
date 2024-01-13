@@ -45,7 +45,7 @@ public class PortInfoTest {
 
     // Test parsing with explicit port
     portInfo = PortInfo.parseUrl("https://example.com:8080/foo");
-    assertEquals("http", portInfo.proto());
+    assertEquals("https", portInfo.proto());
     assertEquals("example.com", portInfo.host());
     assertEquals(8080, portInfo.port());
 
