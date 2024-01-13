@@ -36,7 +36,6 @@ jobs:
       install: true
       script:
         - echo "test"
-        - mvn -Dmaven.wagon.http.retryHandler.count=3 -e test
         - mvn -Dmaven.wagon.http.retryHandler.count=3 -e verify
       after_failure:
         - echo "\n=== SUREFIRE REPORTS ===\n"
