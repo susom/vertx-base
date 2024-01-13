@@ -1,8 +1,9 @@
 language: java
-
 jdk:
   - openjdk17
-
+git:
+  # To help SonarCloud understand history
+  depth: false
 dist: trusty
 
 cache:
