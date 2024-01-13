@@ -1,8 +1,9 @@
 language: java
-
 jdk:
-  - openjdk8
-
+  - openjdk17
+git:
+  # To help SonarCloud understand history
+  depth: false
 dist: trusty
 
 cache:
@@ -22,22 +23,20 @@ before_install:
   # Ensure the settings we want to use are in place before running the default mvn install
   - cp ./travis/maven-settings.xml $HOME/.m2/settings.xml
   - sed -i "s/-SNAPSHOT/-build-$TRAVIS_BUILD_NUMBER/" pom.xml
-  # Disable SourceClear except on scheduled builds
-  - |
-    if [ "$TRAVIS_EVENT_TYPE" != "cron" ]
-    then
-      export NOSCAN=1
-    fi
 
 jobs:
   include:
     - stage: test
+      addons:
+        sonarcloud:
+          organization: "susom"
+          token:
+            secure: "n9/rZAF6gptZ5EHiyxAHBuAkKGHT/GoJXSem+J8ITCzWtra/ZWwCQOhqmZp1v0xqmcTKzopRkQ5tA1VwEgU/JQIcdYIqcfifzduSVVOsBOlwr/VlIGHWmHPMaQ2QX+rvUlbK+ffexhrFuNo4DtTD0j2bpuK/2s9HtZArazejLPLY7qK29iKCe0GZ2gaMgZoQikCGf/Bga5nJSXaQ/gA9URwH8bsYkty5uJVGGsjg+bniy7OnmVgYwZU0dgS0+NgnEbQM5QH2ZMpihTPo8VgP3/5QAsrDyGteziJ/mEi8/4wpd0cSdmLmbwmgobDMsj3w6LqaPEOw1li3wz+q4goUQiYTKPbNkiWpyjzjC6sTfj9UkQUX6+m6V2iqEZe3qGqJYfFadmAR4jaC6J/0lHuCKNfWcz/Bn0Q8Gdj1lsHG6duzriYhWzGQ4MX0QMmmKM6lEG9yk6yJX38oG+b5UDrBZ4xFLvjaal0e7wwG/tr1T2eijQYdRVd/eGcEIvMNw9csWdz4E2+Xjm0pG/rGq2OrkJl6gPKNfgVGr6A4SS9bW/kgemTcQSK5ibQqo6+7mXWg5filvKSk8sHsey0mrtxSJsn9lckXsbyNZ6cf5WK8pKPIbChe7D47JO5tMrTwaeH4hrj/UshMyQKyeKNnwCFSWjQw+OGmx5nYaYtpvoMkLJI="
       # Skip the default mvn command because we want to set the profile explicitly
       install: true
       script:
         - echo "test"
-        - mvn -Dmaven.wagon.http.retryHandler.count=3 -e test
-        - mvn -Dmaven.wagon.http.retryHandler.count=3 -e verify
+        - mvn -e -Pcoverage verify sonar:sonar -Dsonar.projectKey=susom_vertx-base
       after_failure:
         - echo "\n=== SUREFIRE REPORTS ===\n"
         - for F in target/surefire-reports/*.txt; do echo $F; cat $F; echo; done
