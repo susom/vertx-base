@@ -30,12 +30,12 @@ jobs:
         sonarcloud:
           organization: "susom"
           token:
-            secure: "fKkTA+6hW7dLjQPk6xfJWqyk57r0Z4c5vDWCfGXgP8dqWbo6tXFSb/GIJ34gf9kfOzFfRYpoNySBI38cTp3tjc4WX5A13DwMdHv7xGQucBMkioSeO3POM3koaAxm5XT4V7Z+fVInAbZrwqc4xsWKThPRZPJtKx/KKggzviZRds6fWlI9LwGXk4bz7Mj9cP8Aj+a14GClevVm+WSgx9zrcJ52I93tQLnyLVz0fiO8z8WVM4H0HKgxQFiDlI93AMD22li7V9Z2mWZOA4/ZzeAuyQrajsSlWmDo/g31uiLZmBsNz/U4JXLjxdmgvCU8wNFo7bvkwB0OV1bSuT6f5BOJeFA0paOIiVftBopME6E0O7i3vzW3TOgnCCBqBPcI6+CAw9Am0aRGYeXCXdZw4BgqLwxzIc8XN5NfPK8terVXUIfNd1YrpjmGktWGOYF2mXNf3tpjKy8RRZaZ6UPx/2USmLEleUW/qAGA4nepz7nzP5lv/yN1Kg++cDT43hrzvp/4+/2ALUlkbcsRBi0ldy22ngfHmpdTC84S5WJb+v0JGI6lO2lYWvsXkm+m39W57+3xRXnvHjIBsdTLn7rD8C8ewmBqgEyAufcdx5nJSy0bvjpcECjdFSGi89t3mAgyuWtLUreBWqqMH+NxcwnOHwo9sxa6R0uab4SJA8kuNJEiino="
+            secure: "n9/rZAF6gptZ5EHiyxAHBuAkKGHT/GoJXSem+J8ITCzWtra/ZWwCQOhqmZp1v0xqmcTKzopRkQ5tA1VwEgU/JQIcdYIqcfifzduSVVOsBOlwr/VlIGHWmHPMaQ2QX+rvUlbK+ffexhrFuNo4DtTD0j2bpuK/2s9HtZArazejLPLY7qK29iKCe0GZ2gaMgZoQikCGf/Bga5nJSXaQ/gA9URwH8bsYkty5uJVGGsjg+bniy7OnmVgYwZU0dgS0+NgnEbQM5QH2ZMpihTPo8VgP3/5QAsrDyGteziJ/mEi8/4wpd0cSdmLmbwmgobDMsj3w6LqaPEOw1li3wz+q4goUQiYTKPbNkiWpyjzjC6sTfj9UkQUX6+m6V2iqEZe3qGqJYfFadmAR4jaC6J/0lHuCKNfWcz/Bn0Q8Gdj1lsHG6duzriYhWzGQ4MX0QMmmKM6lEG9yk6yJX38oG+b5UDrBZ4xFLvjaal0e7wwG/tr1T2eijQYdRVd/eGcEIvMNw9csWdz4E2+Xjm0pG/rGq2OrkJl6gPKNfgVGr6A4SS9bW/kgemTcQSK5ibQqo6+7mXWg5filvKSk8sHsey0mrtxSJsn9lckXsbyNZ6cf5WK8pKPIbChe7D47JO5tMrTwaeH4hrj/UshMyQKyeKNnwCFSWjQw+OGmx5nYaYtpvoMkLJI="
       # Skip the default mvn command because we want to set the profile explicitly
       install: true
       script:
         - echo "test"
-        - mvn -Dmaven.wagon.http.retryHandler.count=3 -e -Pcoverage org.jacoco:jacoco-maven-plugin:report sonar:sonar -Dsonar.projectKey=susom_vertx-base verify
+        - mvn -e -Pcoverage verify sonar:sonar -Dsonar.projectKey=susom_vertx-base
       after_failure:
         - echo "\n=== SUREFIRE REPORTS ===\n"
         - for F in target/surefire-reports/*.txt; do echo $F; cat $F; echo; done
