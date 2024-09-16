@@ -23,6 +23,8 @@
           </put>
         </httpConfiguration>
       </configuration>
+      <username>_json_key_base64</username>
+      <password>${env.ARTIFACT_REGISTRY_KEY}</password>
     </server>
   </servers>
 </settings>
