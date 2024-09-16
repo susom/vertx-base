@@ -41,7 +41,7 @@ jobs:
       run: cp ./travis/maven-settings.xml $HOME/.m2/settings.xml
 
     - name: Update version in pom.xml
-      run: sed -i "s/-SNAPSHOT/-build-${{ github.run_number }}/" pom.xml
+      run: sed -i "s/-SNAPSHOT/-github-build-${{ github.run_number }}/" pom.xml
 
   #  - name: Set up SonarCloud
   #    uses: sonarsource/sonarcloud-github-action@v2
