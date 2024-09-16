@@ -30,6 +30,9 @@ jobs:
         project_id: 'som-rit-infrastructure-prod'
         workload_identity_provider: 'projects/294515190965/locations/global/workloadIdentityPools/github/providers/susom-github'
     
+    - name: Configure Artifact Registry authentication
+      run: gcloud auth configure-docker us-west1-maven.pkg.dev
+      
     - name: Cache Maven dependencies
       uses: actions/cache@v3
       with:
