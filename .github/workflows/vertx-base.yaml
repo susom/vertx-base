@@ -32,9 +32,6 @@ jobs:
     
     - name: Configure Artifact Registry authentication
       run: gcloud auth configure-docker us-west1-maven.pkg.dev
-
-    - name: Deploy Maven package
-      run: mvn clean deploy
       
     - name: Cache Maven dependencies
       uses: actions/cache@v3
