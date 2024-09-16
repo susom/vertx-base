@@ -29,10 +29,6 @@ jobs:
       with:
         project_id: 'som-rit-infrastructure-prod'
         workload_identity_provider: 'projects/294515190965/locations/global/workloadIdentityPools/github/providers/susom-github'
-
-    - name: Configure Maven to use gcloud as a credential helper
-      run: |
-        gcloud auth application-default login --quiet flag
     
     - name: Cache Maven dependencies
       uses: actions/cache@v3
