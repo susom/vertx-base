@@ -62,6 +62,7 @@ jobs:
     if: github.ref == 'refs/heads/master'
     name: Deploy Snapshots
     runs-on: ubuntu-latest
+    environment: Deploy to Artifact Registry 
     permissions:
       contents: 'read'
       id-token: 'write'
