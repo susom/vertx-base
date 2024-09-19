@@ -49,7 +49,9 @@ jobs:
       run: sed -i "s/-SNAPSHOT/-github-build-${{ github.run_number }}/" pom.xml
 
     - name: Run Tests
-      run: mvn -e verify
+      run: |
+        mvn clean install -U
+        mvn -e verify
 
     - name: Display Surefire reports on failure
       if: failure()
