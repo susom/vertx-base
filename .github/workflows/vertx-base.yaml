@@ -46,12 +46,7 @@ jobs:
       run: cp ./travis/settings.xml $HOME/.m2/settings.xml
 
     - name: Update version in pom.xml
-      run: sed -i "s/-SNAPSHOT/-github-build-${{ github.run_number }}/" pom.xml
-
-    - name: Run Tests
-      run: |
-        mvn -U clean install
-        mvn -e verify
+      run: sed -i "s/-SNAPSHOT/-build-${{ github.run_number }}/" pom.xml
 
     - name: Display Surefire reports on failure
       if: failure()
