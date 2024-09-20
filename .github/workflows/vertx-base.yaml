@@ -52,7 +52,15 @@ jobs:
       if: failure()
       run: |
         echo "\n=== SUREFIRE REPORTS ===\n"
-        for F in target/surefire-reports/*.txt; do echo $F; cat $F; echo; done
+        if [ -d "target/surefire-reports" ]; then
+          for F in target/surefire-reports/*.txt; do
+            echo $F
+            cat $F
+            echo
+          done
+        else
+          echo "No Surefire reports found."
+        fi
 
   deploy_snapshots:
     if: github.ref == 'refs/heads/master' && github.event_name == 'push'
