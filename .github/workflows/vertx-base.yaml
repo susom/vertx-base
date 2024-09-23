@@ -93,6 +93,6 @@ jobs:
 
     - name: Deploy Snapshots
       run: |
-        mvn -f test-pom.xml -Dmaven.wagon.http.retryHandler.count=3 --batch-mode -e -DskipTests=true deploy
+        mvn -f test-pom.xml -Dmaven.wagon.http.retryHandler.count=3 --batch-mode -e -DskipTests=true deploy -X
       env:
         ARTIFACT_REGISTRY_KEY: ${{ secrets.ARTIFACT_REGISTRY_KEY }}
