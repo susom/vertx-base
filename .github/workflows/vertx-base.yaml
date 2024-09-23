@@ -88,6 +88,9 @@ jobs:
         gcloud config set artifacts/location us-west1
         gcloud config set artifacts/repository public-maven
 
+    - name: Clear Maven cache
+      run: rm -rf ~/.m2/repository
+
     - name: Deploy Snapshots
       run: |
         mvn -f test-pom.xml -Dmaven.wagon.http.retryHandler.count=3 --batch-mode -e -DskipTests=true deploy
