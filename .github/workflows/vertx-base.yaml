@@ -37,19 +37,14 @@ jobs:
         gcloud config set artifacts/repository public-maven
 
       
-    - name: Cache Maven dependencies
-      uses: actions/cache@v3
-      with:
-        path: ~/.m2/repository
-        key: ${{ runner.os }}-maven-${{ hashFiles('**/test-pom.xml') }}
-        restore-keys: |
-          ${{ runner.os }}-maven-
+    - name: Clear Maven cache
+      run: rm -rf ~/.m2/repository
 
     - name: Copy Maven settings
       run: cp ./travis/settings.xml $HOME/.m2/settings.xml
 
     - name: Update version in test-pom.xml
-      run: sed -i "s/-SNAPSHOT/-build-${{ github.run_number }}/" test-pom.xml
+      run: sed -i "s/-SNAPSHOT/-build-${{ github.run_number }}/" -f test-pom.xml
 
     - name: Display Surefire reports on failure
       if: failure()
@@ -94,5 +89,3 @@ jobs:
     - name: Deploy Snapshots
       run: |
         mvn -f test-pom.xml -Dmaven.wagon.http.retryHandler.count=3 --batch-mode -e -DskipTests=true deploy -X
-      env:
-        ARTIFACT_REGISTRY_KEY: ${{ secrets.ARTIFACT_REGISTRY_KEY }}
