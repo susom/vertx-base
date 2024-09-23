@@ -31,7 +31,11 @@ jobs:
         workload_identity_provider: 'projects/333682183013/locations/global/workloadIdentityPools/github/providers/github-provider'
     
     - name: Configure Artifact Registry authentication
-      run: gcloud auth configure-docker us-west1-maven.pkg.dev
+      run: |
+        gcloud auth configure-docker us-west1-maven.pkg.dev
+        gcloud config set artifacts/location us-west1
+        gcloud config set artifacts/repository public-maven
+
       
     - name: Cache Maven dependencies
       uses: actions/cache@v3
@@ -77,10 +81,12 @@ jobs:
       with:
         project_id: 'som-rit-infrastructure-dev'
         workload_identity_provider: 'projects/294515190965/locations/global/workloadIdentityPools/github/providers/github-provider'
-        service_account: 'travis-database@som-rit-infrastructure-prod.iam.gserviceaccount.com'
 
     - name: Configure Artifact Registry authentication
-      run: gcloud auth configure-docker us-west1-maven.pkg.dev
+      run: |
+        gcloud auth configure-docker us-west1-maven.pkg.dev
+        gcloud config set artifacts/location us-west1
+        gcloud config set artifacts/repository public-maven
     
     - name: Cache Maven dependencies
       uses: actions/cache@v3
