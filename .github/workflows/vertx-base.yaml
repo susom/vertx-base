@@ -44,13 +44,21 @@ jobs:
       run: cp ./travis/settings.xml $HOME/.m2/settings.xml
 
     - name: Update version in test-pom.xml
-      run: sed -i "s/-SNAPSHOT/-build-${{ github.run_number }}/" -f test-pom.xml
+      run: sed -i "s/-SNAPSHOT/-build-${{ github.run_number }}/" test-pom.xml
 
     - name: Display Surefire reports on failure
       if: failure()
       run: |
-        echo "\n=== SUREFIRE REPORTS ===\n"
-        for F in target/surefire-reports/*.txt; do echo $F; cat $F; echo; done
+        echo -e "\n=== SUREFIRE REPORTS ===\n"
+        if compgen -G "target/surefire-reports/*.txt" > /dev/null; then
+          for F in target/surefire-reports/*.txt; do
+            echo $F
+            cat $F
+            echo
+          done
+        else
+          echo "No Surefire reports found."
+        fi
 
   deploy_snapshots:
     if: github.event_name == 'push'
