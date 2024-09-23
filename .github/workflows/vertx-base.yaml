@@ -87,17 +87,9 @@ jobs:
         gcloud auth configure-docker us-west1-maven.pkg.dev
         gcloud config set artifacts/location us-west1
         gcloud config set artifacts/repository public-maven
-    
-    - name: Cache Maven dependencies
-      uses: actions/cache@v3
-      with:
-        path: ~/.m2/repository
-        key: ${{ runner.os }}-maven-${{ hashFiles('**/test-pom.xml') }}
-        restore-keys: |
-          ${{ runner.os }}-maven-
 
     - name: Deploy Snapshots
       run: |
-        mvn -Dmaven.wagon.http.retryHandler.count=3 --batch-mode -e -DskipTests=true deploy
+        mvn -f test-pom.xml -Dmaven.wagon.http.retryHandler.count=3 --batch-mode -e -DskipTests=true deploy
       env:
         ARTIFACT_REGISTRY_KEY: ${{ secrets.ARTIFACT_REGISTRY_KEY }}
