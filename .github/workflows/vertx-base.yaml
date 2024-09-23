@@ -27,7 +27,7 @@ jobs:
     - name: Authenticate to Google Cloud
       uses: google-github-actions/auth@v2
       with:
-        project_id: 'som-rit-infrastructure-prod'
+        project_id: 'som-rit-infrastructure-dev'
         workload_identity_provider: 'projects/333682183013/locations/global/workloadIdentityPools/github/providers/github-provider'
     
     - name: Configure Artifact Registry authentication
@@ -54,7 +54,7 @@ jobs:
         for F in target/surefire-reports/*.txt; do echo $F; cat $F; echo; done
 
   deploy_snapshots:
-    if: github.event_name == 'push'
+    if: github.ref == 'refs/heads/master' && github.event_name == 'push'
     name: Deploy Snapshots
     runs-on: ubuntu-latest
     environment: Deploy to Artifact Registry 
@@ -75,7 +75,7 @@ jobs:
     - name: Authenticate to Google Cloud
       uses: google-github-actions/auth@v2
       with:
-        project_id: 'som-rit-infrastructure-prod'
+        project_id: 'som-rit-infrastructure-dev'
         workload_identity_provider: 'projects/294515190965/locations/global/workloadIdentityPools/github/providers/github-provider'
         service_account: 'travis-database@som-rit-infrastructure-prod.iam.gserviceaccount.com'
 
