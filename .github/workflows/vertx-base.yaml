@@ -80,7 +80,7 @@ jobs:
       uses: google-github-actions/auth@v2
       with:
         project_id: 'som-rit-infrastructure-dev'
-        workload_identity_provider: 'projects/294515190965/locations/global/workloadIdentityPools/github/providers/github-provider'
+        workload_identity_provider: 'projects/333682183013/locations/global/workloadIdentityPools/github/providers/github-provider'
 
     - name: Configure Artifact Registry authentication
       run: |
