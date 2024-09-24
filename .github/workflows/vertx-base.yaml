@@ -55,7 +55,7 @@ jobs:
         for F in target/surefire-reports/*.txt; do echo $F; cat $F; echo; done
 
   deploy_snapshots:
-    if: github.ref == 'refs/heads/master' && github.event_name == 'push'
+    if: github.event_name == 'push'
     name: Deploy Snapshots
     runs-on: ubuntu-latest
     environment: Deploy to Artifact Registry 
