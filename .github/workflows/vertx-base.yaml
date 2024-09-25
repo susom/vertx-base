@@ -29,11 +29,10 @@ jobs:
       with:
         project_id: 'som-rit-infrastructure-prod'
         workload_identity_provider: 'projects/294515190965/locations/global/workloadIdentityPools/github/providers/susom-github'
-        service_account: 'travis-database@som-rit-infrastructure-prod.iam.gserviceaccount.com'
+
+    - name: Copy Maven settings
+      run: cp ./travis/settings.xml $HOME/.m2/settings.xml
     
-    - name: Configure Artifact Registry authentication
-      run: gcloud auth configure-docker us-west1-maven.pkg.dev
-      
     - name: Cache Maven dependencies
       uses: actions/cache@v3
       with:
@@ -41,9 +40,6 @@ jobs:
         key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
         restore-keys: |
           ${{ runner.os }}-maven-
-
-    - name: Copy Maven settings
-      run: cp ./travis/settings.xml $HOME/.m2/settings.xml
 
     - name: Update version in pom.xml
       run: sed -i "s/-SNAPSHOT/-build-${{ github.run_number }}/" pom.xml
@@ -58,7 +54,6 @@ jobs:
     if: github.event_name == 'push'
     name: Deploy Snapshots
     runs-on: ubuntu-latest
-    environment: Deploy to Artifact Registry 
     permissions:
       contents: 'read'
       id-token: 'write'
@@ -78,11 +73,10 @@ jobs:
       with:
         project_id: 'som-rit-infrastructure-prod'
         workload_identity_provider: 'projects/294515190965/locations/global/workloadIdentityPools/github/providers/susom-github'
-        service_account: 'travis-database@som-rit-infrastructure-prod.iam.gserviceaccount.com'
-
-    - name: Configure Artifact Registry authentication
-      run: gcloud auth configure-docker us-west1-maven.pkg.dev
     
+    - name: Copy Maven settings
+      run: cp ./travis/settings.xml $HOME/.m2/settings.xml
+
     - name: Cache Maven dependencies
       uses: actions/cache@v3
       with:
@@ -94,5 +88,3 @@ jobs:
     - name: Deploy Snapshots
       run: |
         mvn -Dmaven.wagon.http.retryHandler.count=3 --batch-mode -e -DskipTests=true deploy -X
-      env:
-        ARTIFACT_REGISTRY_KEY: ${{ secrets.ARTIFACT_REGISTRY_KEY }}
