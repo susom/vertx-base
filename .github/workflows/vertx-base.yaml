@@ -87,4 +87,5 @@ jobs:
 
     - name: Deploy Snapshots
       run: |
+        mvn -U clean install
         mvn -Dmaven.wagon.http.retryHandler.count=3 --batch-mode -e -DskipTests=true deploy -X
