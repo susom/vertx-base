@@ -24,11 +24,11 @@ jobs:
         java-version: '17'
         distribution: 'adopt'
 
-    # - name: Authenticate to Google Cloud
-    #   uses: google-github-actions/auth@v2
-    #   with:
-    #     project_id: 'som-rit-infrastructure-prod'
-    #     workload_identity_provider: 'projects/294515190965/locations/global/workloadIdentityPools/github/providers/susom-github'
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v2
+      with:
+        project_id: 'som-rit-infrastructure-prod'
+        workload_identity_provider: 'projects/294515190965/locations/global/workloadIdentityPools/github/providers/susom-github'
 
     - name: Copy Maven settings
       run: cp ./travis/settings.xml $HOME/.m2/settings.xml
@@ -68,15 +68,18 @@ jobs:
         java-version: '17'
         distribution: 'adopt'
 
-    # - name: Authenticate to Google Cloud
-    #   uses: google-github-actions/auth@v2
-    #   with:
-    #     project_id: 'som-rit-infrastructure-prod'
-    #     workload_identity_provider: 'projects/294515190965/locations/global/workloadIdentityPools/github/providers/susom-github'
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v2
+      with:
+        project_id: 'som-rit-infrastructure-prod'
+        workload_identity_provider: 'projects/294515190965/locations/global/workloadIdentityPools/github/providers/susom-github'
     
-    - name: Verify Artifact Registry Access
+    - name: Test Authentication with Maven Repository
       run: |
-        gcloud artifacts repositories list --location=us-west1 --project=som-rit-infrastructure-prod
+        gcloud artifacts packages list \
+          --repository=public-maven \
+          --location=us-west1 \
+          --project=som-rit-infrastructure-prod
 
     - name: Copy Maven settings
       run: cp ./travis/settings.xml $HOME/.m2/settings.xml
