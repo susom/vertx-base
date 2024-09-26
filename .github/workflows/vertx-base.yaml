@@ -76,7 +76,7 @@ jobs:
     
     - name: Verify Artifact Registry Access
       run: |
-        gcloud artifacts repositories list --location=us-west1
+        gcloud artifacts repositories list --location=us-west1 --project=som-rit-infrastructure-prod
 
     - name: Copy Maven settings
       run: cp ./travis/settings.xml $HOME/.m2/settings.xml
