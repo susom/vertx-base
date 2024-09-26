@@ -73,7 +73,6 @@ jobs:
       with:
         project_id: 'som-rit-infrastructure-prod'
         workload_identity_provider: 'projects/294515190965/locations/global/workloadIdentityPools/github/providers/susom-github'
-        audience: 'artifactregistry.googleapis.com'
     
     - name: Verify Artifact Registry Access
       run: |
