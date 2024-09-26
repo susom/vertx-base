@@ -24,11 +24,11 @@ jobs:
         java-version: '17'
         distribution: 'adopt'
 
-    - name: Authenticate to Google Cloud
-      uses: google-github-actions/auth@v2
-      with:
-        project_id: 'som-rit-infrastructure-prod'
-        workload_identity_provider: 'projects/294515190965/locations/global/workloadIdentityPools/github/providers/susom-github'
+    # - name: Authenticate to Google Cloud
+    #   uses: google-github-actions/auth@v2
+    #   with:
+    #     project_id: 'som-rit-infrastructure-prod'
+    #     workload_identity_provider: 'projects/294515190965/locations/global/workloadIdentityPools/github/providers/susom-github'
 
     - name: Copy Maven settings
       run: cp ./travis/settings.xml $HOME/.m2/settings.xml
@@ -68,11 +68,11 @@ jobs:
         java-version: '17'
         distribution: 'adopt'
 
-    - name: Authenticate to Google Cloud
-      uses: google-github-actions/auth@v2
-      with:
-        project_id: 'som-rit-infrastructure-prod'
-        workload_identity_provider: 'projects/294515190965/locations/global/workloadIdentityPools/github/providers/susom-github'
+    # - name: Authenticate to Google Cloud
+    #   uses: google-github-actions/auth@v2
+    #   with:
+    #     project_id: 'som-rit-infrastructure-prod'
+    #     workload_identity_provider: 'projects/294515190965/locations/global/workloadIdentityPools/github/providers/susom-github'
     
     - name: Verify Artifact Registry Access
       run: |
