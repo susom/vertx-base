@@ -74,12 +74,12 @@ jobs:
     #     project_id: 'som-rit-infrastructure-prod'
     #     workload_identity_provider: 'projects/294515190965/locations/global/workloadIdentityPools/github/providers/susom-github'
     
-    - name: Test Authentication with Maven Repository
-      run: |
-        gcloud artifacts packages list \
-          --repository=public-maven \
-          --location=us-west1 \
-          --project=som-rit-infrastructure-prod
+    # - name: Test Authentication with Maven Repository
+    #   run: |
+    #     gcloud artifacts packages list \
+    #       --repository=public-maven \
+    #       --location=us-west1 \
+    #       --project=som-rit-infrastructure-prod
 
     - name: Copy Maven settings
       run: cp ./travis/settings.xml $HOME/.m2/settings.xml
