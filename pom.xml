@@ -18,12 +18,12 @@
   </properties>
 
   <dependencies>
-    <!-- <dependency>
+    <dependency>
       <groupId>com.github.susom</groupId>
       <artifactId>database</artifactId>
       <version>5.0-build-2401</version>
       <optional>true</optional>
-    </dependency> -->
+    </dependency>
     <dependency>
       <groupId>org.apache.commons</groupId>
       <artifactId>commons-lang3</artifactId>
