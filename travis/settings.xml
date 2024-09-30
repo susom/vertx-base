@@ -6,7 +6,7 @@
     <server>
       <id>artifact-registry</id>
       <username>oauth2accesstoken</username>
-      <password>\$(gcloud auth print-access-token)</password>
+      <password>${env.GOOGLE_OAUTH_ACCESS_TOKEN}</password>
       <!-- <configuration>
         <httpConfiguration>
           <get>
