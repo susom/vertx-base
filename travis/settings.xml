@@ -5,8 +5,8 @@
   <servers>
     <server>
       <id>artifact-registry</id>
-      <username>oauth2accesstoken</username>
-      <password>${env.GOOGLE_OAUTH_ACCESS_TOKEN}</password>
+      <username>_json_key_base64</username>
+      <password>${env.ARTIFACT_REGISTRY_KEY}</password>
       <!-- <configuration>
         <httpConfiguration>
           <get>
