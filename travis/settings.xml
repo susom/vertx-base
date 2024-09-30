@@ -7,7 +7,7 @@
       <id>artifact-registry</id>
       <username>oauth2accesstoken</username>
       <password>\$(gcloud auth print-access-token)</password>
-      <configuration>
+      <!-- <configuration>
         <httpConfiguration>
           <get>
             <usePreemptive>true</usePreemptive>
@@ -24,7 +24,7 @@
             </params>
           </put>
         </httpConfiguration>
-      </configuration>
+      </configuration> -->
     </server>
   </servers>
 </settings>
