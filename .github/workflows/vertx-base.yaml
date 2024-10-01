@@ -7,7 +7,7 @@ on:
 
 permissions:
   contents: 'read'
-  id-token: 'write' 
+  id-token: 'write'
 
 jobs:
   test:
@@ -87,4 +87,8 @@ jobs:
         run: cp ./travis/new-settings.xml ~/.m2/settings.xml
 
       - name: Deploy Snapshots
-        run: mvn -Dmaven.wagon.http.retryHandler.count=3 --batch-mode -e -DskipTests=true deploy
+        run: |
+          mvn -Dmaven.wagon.http.retryHandler.count=5 \
+              -Dmaven.wagon.httpconnectionManager.ttlSeconds=30 \
+              -Dmaven.wagon.http.timeout=600000 \
+              --batch-mode -e -DskipTests=true deploy -X
