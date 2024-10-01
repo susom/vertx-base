@@ -5,6 +5,10 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: 'read'
+  id-token: 'write'
+
 jobs:
   test:
     name: Test
@@ -12,6 +16,12 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          project_id: 'som-rit-infrastructure-prod'
+          workload_identity_provider: 'projects/294515190965/locations/global/workloadIdentityPools/github/providers/susom-github'
 
       - name: Set up JDK 17
         uses: actions/setup-java@v3
@@ -27,7 +37,7 @@ jobs:
           restore-keys: ${{ runner.os }}-maven
 
       - name: Set up Maven settings
-        run: cp ./travis/maven-settings.xml ~/.m2/settings.xml
+        run: cp ./travis/new-settings.xml ~/.m2/settings.xml
 
       - name: Build and test with Maven
         run: mvn -e -Pcoverage verify
@@ -44,6 +54,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          project_id: 'som-rit-infrastructure-prod'
+          workload_identity_provider: 'projects/294515190965/locations/global/workloadIdentityPools/github/providers/susom-github'
+
       - name: Set up JDK 17
         uses: actions/setup-java@v3
         with:
@@ -58,9 +74,7 @@ jobs:
           restore-keys: ${{ runner.os }}-maven
 
       - name: Set up Maven settings
-        run: cp ./travis/maven-settings.xml ~/.m2/settings.xml
+        run: cp ./travis/new-settings.xml ~/.m2/settings.xml
 
       - name: Deploy Snapshots
         run: mvn -Dmaven.wagon.http.retryHandler.count=3 --batch-mode -e -DskipTests=true deploy
-        env:
-          ARTIFACT_REGISTRY_KEY: ${{ secrets.ARTIFACT_REGISTRY_KEY }}
