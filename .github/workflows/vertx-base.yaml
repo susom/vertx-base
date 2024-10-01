@@ -31,8 +31,8 @@ jobs:
         workload_identity_provider: 'projects/294515190965/locations/global/workloadIdentityPools/github/providers/susom-github'
 
     - name: Set up Artifact Registry Maven settings
-        run: |
-          gcloud auth print-access-token | docker login -u oauth2accesstoken --password-stdin https://us-west1-maven.pkg.dev
+      run: |
+        gcloud auth print-access-token | docker login -u oauth2accesstoken --password-stdin https://us-west1-maven.pkg.dev
 
     - name: Copy Maven settings
       run: cp ./travis/maven-settings.xml $HOME/.m2/settings.xml
@@ -82,8 +82,8 @@ jobs:
         workload_identity_provider: 'projects/294515190965/locations/global/workloadIdentityPools/github/providers/susom-github'
 
     - name: Set up Artifact Registry Maven settings
-        run: |
-          gcloud auth print-access-token | docker login -u oauth2accesstoken --password-stdin https://us-west1-maven.pkg.dev
+      run: |
+        gcloud auth print-access-token | docker login -u oauth2accesstoken --password-stdin https://us-west1-maven.pkg.dev
 
     - name: Copy Maven settings
       run: cp ./travis/maven-settings.xml $HOME/.m2/settings.xml
