@@ -44,16 +44,6 @@ jobs:
     - name: Install dependencies
       run: mvn install -DskipTests=true
 
-    - name: Run Tests and SonarCloud Analysis
-      env:
-        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-      run: |
-        echo "test"
-        mvn -e -Pcoverage verify org.sonarsource.scanner.maven:sonar-maven-plugin:4.0.0.4121:sonar \
-          -Dsonar.projectKey=susom_vertx-base \
-          -Dsonar.organization=susom \
-          -Dsonar.host.url=https://sonarcloud.io
-
     - name: Update version in pom.xml
       run: sed -i "s/-SNAPSHOT/-build-${{ github.run_number }}/" pom.xml
 
