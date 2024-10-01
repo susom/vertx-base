@@ -5,27 +5,7 @@
   <servers>
     <server>
       <id>artifact-registry</id>
-      <configuration>
-        <httpConfiguration>
-          <get>
-            <usePreemptive>true</usePreemptive>
-          </get>
-          <head>
-            <usePreemptive>true</usePreemptive>
-          </head>
-          <put>
-            <params>
-              <property>
-                <name>http.protocol.expect-continue</name>
-                <value>false</value>
-              </property>
-            </params>
-            <connectionTimeout>600000</connectionTimeout>
-            <readTimeout>600000</readTimeout>
-          </put>
-        </httpConfiguration>
-      </configuration>
-      <username>oauth2accesstoken</username>
+      <username>oauth2accesstoken</username>  
       <password>${env.GCP_ACCESS_TOKEN}</password>
     </server>
     <server>
