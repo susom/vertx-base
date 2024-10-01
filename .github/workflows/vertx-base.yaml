@@ -42,9 +42,15 @@ jobs:
       - name: Build and test with Maven
         run: mvn -e -Pcoverage verify
 
+      - name: Show Surefire test reports on failure
+        if: failure()
+        run: |
+          for F in target/surefire-reports/*.txt; do echo $F; cat $F; echo; done
+
   deploy-snapshots:
     name: Deploy Snapshots
     runs-on: ubuntu-latest
+    timeout-minutes: 30  
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -75,5 +81,5 @@ jobs:
         run: |
           mvn -Dmaven.wagon.http.retryHandler.count=5 \
               -Dmaven.wagon.httpconnectionManager.ttlSeconds=30 \
-              -Dmaven.wagon.http.timeout=600000 \
+              -Dmaven.wagon.http.timeout=1200000 \  # 20 minutes timeout
               --batch-mode -e -DskipTests=true deploy -X
