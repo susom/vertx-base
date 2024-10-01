@@ -7,7 +7,6 @@ on:
 
 permissions:
   contents: 'read'
-  id-token: 'write'
 
 jobs:
   test:
@@ -16,12 +15,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
-        with:
-          project_id: 'som-rit-infrastructure-prod'
-          workload_identity_provider: 'projects/294515190965/locations/global/workloadIdentityPools/github/providers/susom-github'
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -39,8 +32,16 @@ jobs:
       - name: Set up Maven settings
         run: cp ./travis/new-settings.xml ~/.m2/settings.xml
 
+      - name: Authenticate using Artifact Registry Key
+        run: |
+          echo "${{ secrets.ARTIFACT_REGISTRY_KEY }}" | base64 -d > $HOME/gcp_key.json
+          gcloud auth activate-service-account --key-file=$HOME/gcp_key.json
+          gcloud auth application-default login --key-file=$HOME/gcp_key.json
+
       - name: Build and test with Maven
         run: mvn -e -Pcoverage verify
+        env:
+          ARTIFACT_REGISTRY_KEY: ${{ secrets.ARTIFACT_REGISTRY_KEY }}
 
       - name: Show Surefire test reports on failure
         if: failure()
@@ -55,15 +56,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
-        with:
-          project_id: 'som-rit-infrastructure-prod'
-          workload_identity_provider: 'projects/294515190965/locations/global/workloadIdentityPools/github/providers/susom-github'
-
-      - name: Verify Authentication
-        run: gcloud auth list
-
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
@@ -80,9 +72,25 @@ jobs:
       - name: Set up Maven settings
         run: cp ./travis/new-settings.xml ~/.m2/settings.xml
 
+      - name: Authenticate using Artifact Registry Key
+        run: |
+          echo "${{ secrets.ARTIFACT_REGISTRY_KEY }}" | base64 -d > $HOME/gcp_key.json
+          gcloud auth activate-service-account --key-file=$HOME/gcp_key.json
+          gcloud auth application-default login --key-file=$HOME/gcp_key.json
+
+      - name: Update version in pom.xml
+        run: |
+          if [[ ${{ github.ref }} == "refs/heads/master" ]]; then
+            sed -i 's/3.1-SNAPSHOT/3.1/' pom.xml
+          else
+            sed -i 's/3.1-SNAPSHOT/3.1-${{ github.run_number }}-SNAPSHOT/' pom.xml
+          fi
+
       - name: Deploy Snapshots
         run: |
           mvn -Dmaven.wagon.http.retryHandler.count=5 \
               -Dmaven.wagon.httpconnectionManager.ttlSeconds=30 \
               -Dmaven.wagon.http.timeout=1200000 \
               --batch-mode -e -DskipTests=true deploy -X
+        env:
+          ARTIFACT_REGISTRY_KEY: ${{ secrets.ARTIFACT_REGISTRY_KEY }}
