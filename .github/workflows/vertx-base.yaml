@@ -31,7 +31,7 @@ jobs:
         workload_identity_provider: 'projects/294515190965/locations/global/workloadIdentityPools/github/providers/susom-github'
 
     - name: Copy Maven settings
-      run: cp ./travis/settings.xml $HOME/.m2/settings.xml
+      run: cp ./travis/maven-settings.xml $HOME/.m2/settings.xml
     
     - name: Cache Maven dependencies
       uses: actions/cache@v3
@@ -79,7 +79,7 @@ jobs:
         service_account: 'principalSet://iam.googleapis.com/projects/294515190965/locations/global/workloadIdentityPools/github/attribute.repository/susom/vertx-base'
 
     - name: Copy Maven settings
-      run: cp ./travis/settings.xml $HOME/.m2/settings.xml
+      run: cp ./travis/maven-settings.xml $HOME/.m2/settings.xml
 
     - name: Cache Maven dependencies
       uses: actions/cache@v3
