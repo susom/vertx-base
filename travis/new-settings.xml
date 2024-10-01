@@ -28,31 +28,15 @@
       <username>oauth2accesstoken</username>
       <password>${env.GCP_ACCESS_TOKEN}</password>
     </server>
+    <server>
+      <id>ossrh</id>
+      <username>${env.OSSRH_USERNAME}</username>
+      <password>${env.OSSRH_PASSWORD}</password>
+    </server>
+    <server>
+      <id>github.com</id>
+      <username>${env.GITHUB_USERNAME}</username>
+      <password>${env.GITHUB_TOKEN}</password>
+    </server>
   </servers>
-
-  <mirrors>
-    <mirror>
-      <id>artifact-registry</id>
-      <mirrorOf>*</mirrorOf>
-      <url>https://us-west1-maven.pkg.dev/som-rit-infrastructure-prod/public-maven</url>
-    </mirror>
-  </mirrors>
-
-  <profiles>
-    <profile>
-      <id>google-artifact-registry</id>
-      <repositories>
-        <repository>
-          <id>artifact-registry</id>
-          <url>https://us-west1-maven.pkg.dev/som-rit-infrastructure-prod/public-maven</url>
-          <releases><enabled>true</enabled></releases>
-          <snapshots><enabled>true</enabled></snapshots>
-        </repository>
-      </repositories>
-    </profile>
-  </profiles>
-
-  <activeProfiles>
-    <activeProfile>google-artifact-registry</activeProfile>
-  </activeProfiles>
 </settings>
