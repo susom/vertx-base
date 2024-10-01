@@ -20,8 +20,8 @@
                 <value>false</value>
               </property>
             </params>
-            <connectionTimeout>1200000</connectionTimeout>  
-            <readTimeout>1200000</readTimeout>
+            <connectionTimeout>600000</connectionTimeout>
+            <readTimeout>600000</readTimeout>
           </put>
         </httpConfiguration>
       </configuration>
@@ -39,30 +39,4 @@
       <password>${env.GITHUB_TOKEN}</password>
     </server>
   </servers>
-
-  <mirrors>
-    <mirror>
-      <id>artifact-registry</id>
-      <mirrorOf>*</mirrorOf>
-      <url>https://us-west1-maven.pkg.dev/som-rit-infrastructure-prod/public-maven</url>
-    </mirror>
-  </mirrors>
-
-  <profiles>
-    <profile>
-      <id>google-artifact-registry</id>
-      <repositories>
-        <repository>
-          <id>artifact-registry</id>
-          <url>https://us-west1-maven.pkg.dev/som-rit-infrastructure-prod/public-maven</url>
-          <releases><enabled>true</enabled></releases>
-          <snapshots><enabled>true</enabled></snapshots>
-        </repository>
-      </repositories>
-    </profile>
-  </profiles>
-
-  <activeProfiles>
-    <activeProfile>google-artifact-registry</activeProfile>
-  </activeProfiles>
 </settings>
