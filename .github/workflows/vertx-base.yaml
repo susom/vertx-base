@@ -4,95 +4,64 @@ on:
   push:
   pull_request:
   workflow_dispatch:
-  schedule:
-    - cron: '0 0 * * *' # Cron job to run daily at midnight (UTC)
 
 jobs:
   test:
+    name: Test
     runs-on: ubuntu-latest
-    permissions:
-      contents: 'read'
-      id-token: 'write'
-
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up JDK 17
-      uses: actions/setup-java@v3
-      with:
-        java-version: '17'
-        distribution: 'adopt'
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '17'
 
-    - name: Authenticate to Google Cloud
-      uses: google-github-actions/auth@v2
-      with:
-        project_id: 'som-rit-infrastructure-prod'
-        workload_identity_provider: 'projects/294515190965/locations/global/workloadIdentityPools/github/providers/susom-github'
-        service_account: 'travis-database@som-rit-infrastructure-prod.iam.gserviceaccount.com'
-    
-    - name: Configure Artifact Registry authentication
-      run: gcloud auth configure-docker us-west1-maven.pkg.dev
-      
-    - name: Cache Maven dependencies
-      uses: actions/cache@v3
-      with:
-        path: ~/.m2/repository
-        key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-        restore-keys: |
-          ${{ runner.os }}-maven-
+      - name: Cache Maven dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-maven
 
-    - name: Copy Maven settings
-      run: cp ./travis/settings.xml $HOME/.m2/settings.xml
+      - name: Set up Maven settings
+        run: cp ./travis/maven-settings.xml ~/.m2/settings.xml
 
-    - name: Update version in pom.xml
-      run: sed -i "s/-SNAPSHOT/-build-${{ github.run_number }}/" pom.xml
+      - name: Build and test with Maven
+        run: mvn -e -Pcoverage verify
 
-    - name: Display Surefire reports on failure
-      if: failure()
-      run: |
-        echo "\n=== SUREFIRE REPORTS ===\n"
-        for F in target/surefire-reports/*.txt; do echo $F; cat $F; echo; done
+      - name: Show Surefire test reports on failure
+        if: failure()
+        run: |
+          for F in target/surefire-reports/*.txt; do echo $F; cat $F; echo; done
 
-  deploy_snapshots:
-    if: github.ref == 'refs/heads/master' && github.event_name == 'push'
+  deploy-snapshots:
     name: Deploy Snapshots
     runs-on: ubuntu-latest
-    environment: Deploy to Artifact Registry 
-    permissions:
-      contents: 'read'
-      id-token: 'write'
-    
+    if: github.ref == 'refs/heads/master' && github.event_name == 'push'
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up JDK 17
-      uses: actions/setup-java@v4
-      with:
-        java-version: '17'
-        distribution: 'adopt'
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '17'
 
-    - name: Authenticate to Google Cloud
-      uses: google-github-actions/auth@v2
-      with:
-        project_id: 'som-rit-infrastructure-prod'
-        workload_identity_provider: 'projects/294515190965/locations/global/workloadIdentityPools/github/providers/susom-github'
-        service_account: 'travis-database@som-rit-infrastructure-prod.iam.gserviceaccount.com'
+      - name: Cache Maven dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-maven
 
-    - name: Configure Artifact Registry authentication
-      run: gcloud auth configure-docker us-west1-maven.pkg.dev
-    
-    - name: Cache Maven dependencies
-      uses: actions/cache@v3
-      with:
-        path: ~/.m2/repository
-        key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-        restore-keys: |
-          ${{ runner.os }}-maven-
+      - name: Set up Maven settings
+        run: cp ./travis/maven-settings.xml ~/.m2/settings.xml
 
-    - name: Deploy Snapshots
-      run: |
-        mvn -Dmaven.wagon.http.retryHandler.count=3 --batch-mode -e -DskipTests=true deploy
-      env:
-        ARTIFACT_REGISTRY_KEY: ${{ secrets.ARTIFACT_REGISTRY_KEY }}
+      - name: Deploy Snapshots
+        run: mvn -Dmaven.wagon.http.retryHandler.count=3 --batch-mode -e -DskipTests=true deploy
+        env:
+          ARTIFACT_REGISTRY_KEY: ${{ secrets.ARTIFACT_REGISTRY_KEY }}
