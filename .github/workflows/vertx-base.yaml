@@ -30,12 +30,20 @@ jobs:
         project_id: 'som-rit-infrastructure-prod'
         workload_identity_provider: 'projects/294515190965/locations/global/workloadIdentityPools/github/providers/susom-github'
 
-    - name: Set up Artifact Registry Maven settings
+    - name: Configure Maven Artifact Registry
       run: |
-        gcloud auth print-access-token | docker login -u oauth2accesstoken --password-stdin https://us-west1-maven.pkg.dev
+        echo "<settings>
+          <servers>
+            <server>
+              <id>artifact-registry</id>
+              <username>oauth2accesstoken</username>
+              <password>$(gcloud auth print-access-token)</password>
+            </server>
+          </servers>
+        </settings>" > $HOME/.m2/settings.xml
 
-    - name: Copy Maven settings
-      run: cp ./travis/maven-settings.xml $HOME/.m2/settings.xml
+    # - name: Copy Maven settings
+    #   run: cp ./travis/maven-settings.xml $HOME/.m2/settings.xml
 
     - name: Cache Maven dependencies
       uses: actions/cache@v3
@@ -81,12 +89,20 @@ jobs:
         project_id: 'som-rit-infrastructure-prod'
         workload_identity_provider: 'projects/294515190965/locations/global/workloadIdentityPools/github/providers/susom-github'
 
-    - name: Set up Artifact Registry Maven settings
+    - name: Configure Maven Artifact Registry
       run: |
-        gcloud auth print-access-token | docker login -u oauth2accesstoken --password-stdin https://us-west1-maven.pkg.dev
+        echo "<settings>
+          <servers>
+            <server>
+              <id>artifact-registry</id>
+              <username>oauth2accesstoken</username>
+              <password>$(gcloud auth print-access-token)</password>
+            </server>
+          </servers>
+        </settings>" > $HOME/.m2/settings.xml
 
-    - name: Copy Maven settings
-      run: cp ./travis/maven-settings.xml $HOME/.m2/settings.xml
+    # - name: Copy Maven settings
+    #   run: cp ./travis/maven-settings.xml $HOME/.m2/settings.xml
 
     - name: Cache Maven dependencies
       uses: actions/cache@v3
