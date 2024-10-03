@@ -6,9 +6,9 @@ on:
   workflow_dispatch:
 
 permissions:
-  id-token: 'write'
   contents: write
   packages: write
+  id-token: write
 
 jobs:
   test:
@@ -50,6 +50,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
@@ -71,10 +72,6 @@ jobs:
         with:
           project_id: 'som-rit-infrastructure-prod'
           workload_identity_provider: 'projects/294515190965/locations/global/workloadIdentityPools/github/providers/susom-github'
-          create_credentials_file: true
-          export_environment_variables: true
-        env:
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
 
       - name: Deploy Snapshots
         run: |
@@ -82,6 +79,3 @@ jobs:
               -Dmaven.wagon.httpconnectionManager.ttlSeconds=30 \
               -Dmaven.wagon.http.timeout=1200000 \
               --batch-mode -e -DskipTests=true deploy -X
-        env:
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
-          CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}

@@ -10,17 +10,15 @@
           <get>
             <usePreemptive>true</usePreemptive>
           </get>
-          <head>
-            <usePreemptive>true</usePreemptive>
-          </head>
           <put>
-            <params>
-              <property>
-                <name>http.protocol.expect-continue</name>
-                <value>false</value>
-              </property>
-            </params>
+            <usePreemptive>true</usePreemptive>
           </put>
+          <params>
+            <property>
+              <name>http.protocol.expect-continue</name>
+              <value>false</value>
+            </property>
+          </params>
         </httpConfiguration>
       </configuration>
     </server>
