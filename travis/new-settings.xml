@@ -7,6 +7,24 @@
       <id>artifact-registry</id>
       <username>_json_key_base64</username>
       <password>${env.ARTIFACT_REGISTRY_KEY}</password>
+      <configuration>
+        <httpConfiguration>
+          <get>
+            <usePreemptive>true</usePreemptive>
+          </get>
+          <head>
+            <usePreemptive>true</usePreemptive>
+          </head>
+          <put>
+            <params>
+              <property>
+                <name>http.protocol.expect-continue</name>
+                <value>false</value>
+              </property>
+            </params>
+          </put>
+        </httpConfiguration>
+      </configuration>
     </server>
   </servers>
 </settings>
