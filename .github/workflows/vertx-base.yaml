@@ -32,16 +32,8 @@ jobs:
       - name: Set up Maven settings
         run: cp ./travis/new-settings.xml ~/.m2/settings.xml
 
-      - name: Authenticate using Artifact Registry Key
-        run: |
-          echo "${{ secrets.ARTIFACT_REGISTRY_KEY }}" | base64 -d > $HOME/gcp_key.json
-          gcloud auth activate-service-account --key-file=$HOME/gcp_key.json
-          gcloud auth application-default login --key-file=$HOME/gcp_key.json
-
       - name: Build and test with Maven
         run: mvn -e -Pcoverage verify
-        env:
-          ARTIFACT_REGISTRY_KEY: ${{ secrets.ARTIFACT_REGISTRY_KEY }}
 
       - name: Show Surefire test reports on failure
         if: failure()
@@ -76,15 +68,9 @@ jobs:
         run: |
           echo "${{ secrets.ARTIFACT_REGISTRY_KEY }}" | base64 -d > $HOME/gcp_key.json
           gcloud auth activate-service-account --key-file=$HOME/gcp_key.json
-          gcloud auth application-default login --key-file=$HOME/gcp_key.json
-
-      - name: Update version in pom.xml
-        run: |
-          if [[ ${{ github.ref }} == "refs/heads/master" ]]; then
-            sed -i 's/3.1-SNAPSHOT/3.1/' pom.xml
-          else
-            sed -i 's/3.1-SNAPSHOT/3.1-${{ github.run_number }}-SNAPSHOT/' pom.xml
-          fi
+          export GCP_ACCESS_TOKEN=$(gcloud auth print-access-token)
+        env:
+          GCP_ACCESS_TOKEN: ${{ secrets.GCP_ACCESS_TOKEN }}
 
       - name: Deploy Snapshots
         run: |
@@ -93,4 +79,4 @@ jobs:
               -Dmaven.wagon.http.timeout=1200000 \
               --batch-mode -e -DskipTests=true deploy -X
         env:
-          ARTIFACT_REGISTRY_KEY: ${{ secrets.ARTIFACT_REGISTRY_KEY }}
+          GCP_ACCESS_TOKEN: ${{ secrets.GCP_ACCESS_TOKEN }}
