@@ -4,7 +4,7 @@ jdk:
 git:
   # To help SonarCloud understand history
   depth: false
-dist: trusty
+dist: focal
 
 cache:
   directories:
