@@ -5,8 +5,6 @@
   <servers>
     <server>
       <id>artifact-registry</id>
-      <username>_json_key_base64</username>
-      <!-- No password field since authentication is handled via OIDC -->
       <configuration>
         <httpConfiguration>
           <get>
