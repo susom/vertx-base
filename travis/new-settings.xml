@@ -5,20 +5,24 @@
   <servers>
     <server>
       <id>artifact-registry</id>
+      <username>oauth2accesstoken</username>
+      <password>${env.GCP_ACCESS_TOKEN}</password>
       <configuration>
         <httpConfiguration>
           <get>
             <usePreemptive>true</usePreemptive>
           </get>
-          <put>
+          <head>
             <usePreemptive>true</usePreemptive>
+          </head>
+          <put>
+            <params>
+              <property>
+                <name>http.protocol.expect-continue</name>
+                <value>false</value>
+              </property>
+            </params>
           </put>
-          <params>
-            <property>
-              <name>http.protocol.expect-continue</name>
-              <value>false</value>
-            </property>
-          </params>
         </httpConfiguration>
       </configuration>
     </server>

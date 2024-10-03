@@ -6,9 +6,9 @@ on:
   workflow_dispatch:
 
 permissions:
+  id-token: write
   contents: write
   packages: write
-  id-token: write
 
 jobs:
   test:
@@ -50,7 +50,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
@@ -67,11 +66,18 @@ jobs:
       - name: Set up Maven settings
         run: cp ./travis/new-settings.xml ~/.m2/settings.xml
 
-      - name: Authenticate to Google Cloud
+      - name: Authenticate using Workload Identity Federation
         uses: google-github-actions/auth@v2
         with:
           project_id: 'som-rit-infrastructure-prod'
           workload_identity_provider: 'projects/294515190965/locations/global/workloadIdentityPools/github/providers/susom-github'
+
+      - name: Generate GCP Access Token
+        id: auth
+        run: |
+          export GCP_ACCESS_TOKEN=$(gcloud auth print-access-token)
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
 
       - name: Deploy Snapshots
         run: |
@@ -79,3 +85,5 @@ jobs:
               -Dmaven.wagon.httpconnectionManager.ttlSeconds=30 \
               -Dmaven.wagon.http.timeout=1200000 \
               --batch-mode -e -DskipTests=true deploy -X
+        env:
+          GCP_ACCESS_TOKEN: ${{ steps.auth.outputs.GCP_ACCESS_TOKEN }}
