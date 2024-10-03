@@ -6,7 +6,7 @@
     <server>
       <id>artifact-registry</id>
       <username>_json_key_base64</username>
-      <!-- Removed the password field since authentication is handled via GCP key -->
+      <!-- No password field since authentication is handled via OIDC -->
       <configuration>
         <httpConfiguration>
           <get>

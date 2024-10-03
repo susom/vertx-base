@@ -8,6 +8,7 @@ on:
 permissions:
   contents: write
   packages: write
+  id-token: write  
 
 jobs:
   test:
@@ -65,13 +66,11 @@ jobs:
       - name: Set up Maven settings
         run: cp ./travis/new-settings.xml ~/.m2/settings.xml
 
-      - name: Authenticate using Artifact Registry Key
-        run: |
-          echo "${{ secrets.ARTIFACT_REGISTRY_KEY }}" | base64 -d > $HOME/gcp_key.json
-          gcloud auth activate-service-account --key-file=$HOME/gcp_key.json
-          export GCP_ACCESS_TOKEN=$(gcloud auth print-access-token)
-        env:
-          GCP_ACCESS_TOKEN: ${{ secrets.GCP_ACCESS_TOKEN }}
+      - name: Authenticate to Google Cloud using Workload Identity Federation
+        uses: google-github-actions/auth@v2
+        with:
+          project_id: 'som-rit-infrastructure-prod'
+          workload_identity_provider: 'projects/294515190965/locations/global/workloadIdentityPools/github/providers/susom-github'
 
       - name: Deploy Snapshots
         run: |
@@ -79,5 +78,3 @@ jobs:
               -Dmaven.wagon.httpconnectionManager.ttlSeconds=30 \
               -Dmaven.wagon.http.timeout=1200000 \
               --batch-mode -e -DskipTests=true deploy -X
-        env:
-          GCP_ACCESS_TOKEN: ${{ secrets.GCP_ACCESS_TOKEN }}
