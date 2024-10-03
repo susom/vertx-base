@@ -1,12 +1,12 @@
 <settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
           xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0
-                      http://maven.apache.org/xsd/settings-1.0.0.xsd">
+                              http://maven.apache.org/xsd/settings-1.0.0.xsd">
   <servers>
     <server>
       <id>artifact-registry</id>
       <username>_json_key_base64</username>
-      <password>${env.ARTIFACT_REGISTRY_KEY}</password>
+      <!-- Removed the password field since authentication is handled via GCP key -->
       <configuration>
         <httpConfiguration>
           <get>
