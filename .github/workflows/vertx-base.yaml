@@ -68,9 +68,8 @@ jobs:
         run: |
           echo "${{ secrets.ARTIFACT_REGISTRY_KEY }}" | base64 -d > $HOME/gcp_key.json
           gcloud auth activate-service-account --key-file=$HOME/gcp_key.json
-          export GCP_ACCESS_TOKEN=$(gcloud auth print-access-token)
         env:
-          GCP_ACCESS_TOKEN: ${{ secrets.GCP_ACCESS_TOKEN }}
+          ARTIFACT_REGISTRY_KEY: ${{ secrets.ARTIFACT_REGISTRY_KEY }}
 
       - name: Deploy Snapshots
         run: |
@@ -79,4 +78,4 @@ jobs:
               -Dmaven.wagon.http.timeout=1200000 \
               --batch-mode -e -DskipTests=true deploy -X
         env:
-          GCP_ACCESS_TOKEN: ${{ secrets.GCP_ACCESS_TOKEN }}
+          ARTIFACT_REGISTRY_KEY: ${{ secrets.ARTIFACT_REGISTRY_KEY }}
