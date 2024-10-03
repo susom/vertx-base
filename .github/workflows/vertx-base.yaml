@@ -72,11 +72,13 @@ jobs:
         env:
           GCP_ACCESS_TOKEN: ${{ secrets.GCP_ACCESS_TOKEN }}
 
-      - name: Deploy Snapshots
+      - name: Deploy Snapshots with Retry Logic
         run: |
-          mvn -Dmaven.wagon.http.retryHandler.count=5 \
-              -Dmaven.wagon.httpconnectionManager.ttlSeconds=60 \
-              -Dmaven.wagon.http.timeout=3600000 \
-              --batch-mode -e -DskipTests=true deploy -X
+          for i in {1..3}; do
+            mvn -Dmaven.wagon.http.retryHandler.count=10 \
+                -Dmaven.wagon.httpconnectionManager.ttlSeconds=60 \
+                -Dmaven.wagon.http.timeout=3600000 \
+                --batch-mode -e -DskipTests=true deploy -X && break || sleep 30;
+          done
         env:
           GCP_ACCESS_TOKEN: ${{ secrets.GCP_ACCESS_TOKEN }}
