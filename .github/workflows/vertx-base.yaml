@@ -25,7 +25,7 @@ jobs:
         distribution: 'adopt'
 
     - name: Check Maven version
-        run: mvn -version
+      run: mvn -version
 
     - name: Authenticate to Google Cloud
       uses: google-github-actions/auth@v2
