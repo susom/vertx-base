@@ -75,8 +75,8 @@ jobs:
       - name: Deploy Snapshots
         run: |
           mvn -Dmaven.wagon.http.retryHandler.count=5 \
-              -Dmaven.wagon.httpconnectionManager.ttlSeconds=30 \
-              -Dmaven.wagon.http.timeout=1200000 \
+              -Dmaven.wagon.httpconnectionManager.ttlSeconds=60 \
+              -Dmaven.wagon.http.timeout=3600000 \
               --batch-mode -e -DskipTests=true deploy -X
         env:
           GCP_ACCESS_TOKEN: ${{ secrets.GCP_ACCESS_TOKEN }}
