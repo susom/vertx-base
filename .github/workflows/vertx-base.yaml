@@ -9,54 +9,20 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-20.04
-    strategy:
-      matrix:
-        java-version: [17]
+    permissions:
+      contents: 'read'
+      id-token: 'write'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Set up JDK
-        uses: actions/setup-java@v4
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
         with:
-          distribution: 'adopt'
-          java-version: ${{ matrix.java-version }}
-
-      - name: Cache Maven dependencies
-        uses: actions/cache@v4
-        with:
-          path: ~/.m2
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-maven-
-
-      - name: Decode and Copy Maven settings
-        run: |
-          echo "${{ secrets.ARTIFACT_REGISTRY_KEY }}" | base64 --decode > artifact_registry_key.json
-          cp ./travis/new-settings.xml $HOME/.m2/settings.xml
-          # Use @ as the sed delimiter to avoid issues with slashes in the JSON key
-          sed -i 's@${env.ARTIFACT_REGISTRY_KEY}@'$(cat artifact_registry_key.json)'@' $HOME/.m2/settings.xml
-
-      - name: Update POM Version
-        run: sed -i "s/-SNAPSHOT/-build-${{ github.run_number }}/" pom.xml
-
-      - name: Run Maven Tests
-        run: mvn -e verify
-
-      - name: Surefire Reports on Failure
-        if: failure()
-        run: |
-          echo "\n=== SUREFIRE REPORTS ===\n"
-          for F in target/surefire-reports/*.txt; do echo $F; cat $F; echo; done
-
-  deploy_snapshots:
-    name: Deploy Snapshots
-    runs-on: ubuntu-20.04
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+          project_id: 'som-rit-infrastructure-prod'
+          workload_identity_provider: 'projects/294515190965/locations/global/workloadIdentityPools/github/providers/susom-github'
 
       - name: Set up JDK
         uses: actions/setup-java@v4
@@ -72,12 +38,53 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-maven-
 
-      - name: Decode and Copy Maven settings for deploy
-        run: |
-          echo "${{ secrets.ARTIFACT_REGISTRY_KEY }}" | base64 --decode > artifact_registry_key.json
-          cp ./travis/new-settings.xml $HOME/.m2/settings.xml
-          # Use @ as the sed delimiter to avoid issues with slashes in the JSON key
-          sed -i 's@${env.ARTIFACT_REGISTRY_KEY}@'$(cat artifact_registry_key.json)'@' $HOME/.m2/settings.xml
+      - name: Set up Google Cloud authentication for Maven
+        run: gcloud auth application-default login --no-launch-browser
+
+      - name: Copy Maven settings
+        run: cp ./travis/new-settings.xml $HOME/.m2/settings.xml
+
+      - name: Update POM Version
+        run: sed -i "s/-SNAPSHOT/-build-${{ github.run_number }}/" pom.xml
+
+      - name: Run Maven Tests
+        run: mvn -e verify --settings $HOME/.m2/settings.xml
+
+  deploy_snapshots:
+    name: Deploy Snapshots
+    runs-on: ubuntu-20.04
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          project_id: 'som-rit-infrastructure-prod'
+          workload_identity_provider: 'projects/294515190965/locations/global/workloadIdentityPools/github/providers/susom-github'
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'adopt'
+          java-version: 17
+
+      - name: Cache Maven dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      - name: Set up Google Cloud authentication for Maven
+        run: gcloud auth application-default login --no-launch-browser
+
+      - name: Copy Maven settings for deploy
+        run: cp ./travis/new-settings.xml $HOME/.m2/settings.xml
 
       - name: Update POM Version for deploy
         run: sed -i "s/-SNAPSHOT/-build-${{ github.run_number }}/" pom.xml
