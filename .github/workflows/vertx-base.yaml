@@ -33,9 +33,7 @@ jobs:
         run: cp ./travis/new-settings.xml ~/.m2/settings.xml
 
       - name: Build and test with Maven
-        run: mvn -e -Pcoverage verify sonar:sonar
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: mvn -e -Pcoverage verify
 
       - name: Show Surefire test reports on failure
         if: failure()
