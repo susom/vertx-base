@@ -33,7 +33,9 @@ jobs:
         run: cp ./travis/new-settings.xml ~/.m2/settings.xml
 
       - name: Build and test with Maven
-        run: mvn -e -Pcoverage verify
+        run: mvn -e -Pcoverage verify sonar:sonar
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
       - name: Show Surefire test reports on failure
         if: failure()
@@ -72,13 +74,11 @@ jobs:
         env:
           GCP_ACCESS_TOKEN: ${{ secrets.GCP_ACCESS_TOKEN }}
 
-      - name: Deploy Snapshots with Retry Logic
+      - name: Deploy Snapshots
         run: |
-          for i in {1..3}; do
-            mvn -Dmaven.wagon.http.retryHandler.count=10 \
-                -Dmaven.wagon.httpconnectionManager.ttlSeconds=60 \
-                -Dmaven.wagon.http.timeout=3600000 \
-                --batch-mode -e -DskipTests=true deploy -X && break || sleep 30;
-          done
+          mvn -Dmaven.wagon.http.retryHandler.count=5 \
+              -Dmaven.wagon.httpconnectionManager.ttlSeconds=30 \
+              -Dmaven.wagon.http.timeout=1200000 \
+              --batch-mode -e -DskipTests=true deploy -X
         env:
           GCP_ACCESS_TOKEN: ${{ secrets.GCP_ACCESS_TOKEN }}

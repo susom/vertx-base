@@ -23,8 +23,8 @@
           </put>
         </httpConfiguration>
       </configuration>
-      <username>oauth2accesstoken</username>
-      <password>${env.GCP_ACCESS_TOKEN}</password>
+      <username>_json_key_base64</username>
+      <password>${env.ARTIFACT_REGISTRY_KEY}</password>
     </server>
     <server>
       <id>ossrh</id>
