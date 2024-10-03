@@ -9,7 +9,7 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-14.04
     permissions:
       contents: 'read'
       id-token: 'write'
@@ -68,7 +68,7 @@ jobs:
   deploy_snapshots:
     if: github.event_name == 'push'
     name: Deploy Snapshots
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-14.04
     permissions:
       contents: 'read'
       id-token: 'write'
