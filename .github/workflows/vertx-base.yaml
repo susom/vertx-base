@@ -6,7 +6,8 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: 'write'
+  contents: write
+  packages: write
 
 jobs:
   test:
@@ -68,8 +69,9 @@ jobs:
         run: |
           echo "${{ secrets.ARTIFACT_REGISTRY_KEY }}" | base64 -d > $HOME/gcp_key.json
           gcloud auth activate-service-account --key-file=$HOME/gcp_key.json
+          export GCP_ACCESS_TOKEN=$(gcloud auth print-access-token)
         env:
-          ARTIFACT_REGISTRY_KEY: ${{ secrets.ARTIFACT_REGISTRY_KEY }}
+          GCP_ACCESS_TOKEN: ${{ secrets.GCP_ACCESS_TOKEN }}
 
       - name: Deploy Snapshots
         run: |
@@ -78,4 +80,4 @@ jobs:
               -Dmaven.wagon.http.timeout=1200000 \
               --batch-mode -e -DskipTests=true deploy -X
         env:
-          ARTIFACT_REGISTRY_KEY: ${{ secrets.ARTIFACT_REGISTRY_KEY }}
+          GCP_ACCESS_TOKEN: ${{ secrets.GCP_ACCESS_TOKEN }}
