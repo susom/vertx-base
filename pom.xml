@@ -175,7 +175,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-deploy-plugin</artifactId>
-        <version>2.7</version>
+        <version>3.0.0</version>
         <configuration>
           <connectTimeout>60000</connectTimeout>  <!-- Connection timeout in milliseconds -->
           <readTimeout>60000</readTimeout>        <!-- Read timeout in milliseconds -->
