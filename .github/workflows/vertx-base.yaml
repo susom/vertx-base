@@ -32,8 +32,11 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-maven-
 
-      - name: Copy Maven settings
-        run: cp ./travis/new-settings.xml $HOME/.m2/settings.xml
+      - name: Decode and Copy Maven settings
+        run: |
+          echo "${{ secrets.ARTIFACT_REGISTRY_KEY }}" | base64 --decode > artifact_registry_key.json
+          cp ./travis/new-settings.xml $HOME/.m2/settings.xml
+          sed -i 's|${env.ARTIFACT_REGISTRY_KEY}|'$(cat artifact_registry_key.json)'|' $HOME/.m2/settings.xml
 
       - name: Update POM Version
         run: sed -i "s/-SNAPSHOT/-build-${{ github.run_number }}/" pom.xml
@@ -68,8 +71,11 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-maven-
 
-      - name: Copy new Maven settings for deploy
-        run: cp ./travis/new-settings.xml $HOME/.m2/settings.xml
+      - name: Decode and Copy Maven settings for deploy
+        run: |
+          echo "${{ secrets.ARTIFACT_REGISTRY_KEY }}" | base64 --decode > artifact_registry_key.json
+          cp ./travis/new-settings.xml $HOME/.m2/settings.xml
+          sed -i 's|${env.ARTIFACT_REGISTRY_KEY}|'$(cat artifact_registry_key.json)'|' $HOME/.m2/settings.xml
 
       - name: Update POM Version for deploy
         run: sed -i "s/-SNAPSHOT/-build-${{ github.run_number }}/" pom.xml
