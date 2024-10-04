@@ -83,5 +83,8 @@ jobs:
       - name: Update POM Version for deploy
         run: sed -i "s/-SNAPSHOT/-build-${{ github.run_number }}/" pom.xml
 
+      - name: Generate Sources and Javadocs
+        run: mvn source:jar javadoc:jar
+
       - name: Deploy Snapshots
         run: mvn -s $HOME/.m2/settings.xml -Dmaven.wagon.http.retryHandler.count=3 --batch-mode -e -DskipTests=true deploy
