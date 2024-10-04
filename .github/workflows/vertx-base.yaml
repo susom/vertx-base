@@ -91,9 +91,15 @@ jobs:
 
       - name: Deploy Snapshots with Retry Logic
         run: |
-          for i in {1..3}; do
-            mvn -Dmaven.wagon.http.retryHandler.count=10 \
-                -Dmaven.wagon.httpconnectionManager.ttlSeconds=60 \
-                -Dmaven.wagon.http.timeout=3600000 \
-                --batch-mode -e -DskipTests=true deploy -X && break || sleep 30;
+          success=false
+          for i in {1..5}; do
+            mvn -s $HOME/.m2/settings.xml \
+                -Dmaven.wagon.http.retryHandler.count=5 \
+                -Dmaven.wagon.httpconnectionManager.ttlSeconds=120 \
+                -Dmaven.wagon.http.timeout=7200000 \
+                --batch-mode -e -DskipTests=true deploy -X && success=true && break || sleep 60;
           done
+          if [ "$success" = false ]; then
+            echo "Maven deploy failed after 5 attempts." >&2
+            exit 1
+          fi
