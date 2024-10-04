@@ -6,8 +6,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  test_and_deploy_snapshots:
-    name: Test and Deploy Snapshots
+  test:
+    name: Test
     runs-on: ubuntu-20.04
     permissions:
       contents: 'read'
@@ -46,6 +46,42 @@ jobs:
 
       - name: Run Maven Tests
         run: mvn -e verify --settings $HOME/.m2/settings.xml
+
+  deploy_snapshots:
+    name: Deploy Snapshots
+    runs-on: ubuntu-20.04
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          project_id: 'som-rit-infrastructure-prod'
+          workload_identity_provider: 'projects/294515190965/locations/global/workloadIdentityPools/github/providers/susom-github'
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'adopt'
+          java-version: 17
+
+      - name: Cache Maven dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      - name: Copy Maven settings for deploy
+        run: cp ./travis/new-settings.xml $HOME/.m2/settings.xml
+
+      - name: Update POM Version for deploy
+        run: sed -i "s/-SNAPSHOT/-build-${{ github.run_number }}/" pom.xml
 
       - name: Generate Sources and Javadocs
         run: mvn source:jar javadoc:jar
