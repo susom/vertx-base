@@ -17,6 +17,8 @@
     <vertx.version>3.9.13</vertx.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+    <wagon.http.connectionTimeout>60000</wagon.http.connectionTimeout>
+    <wagon.http.timeout>60000</wagon.http.timeout>
   </properties>
 
   <dependencies>
@@ -182,11 +184,10 @@
             <configuration>
               <minimizeJar>true</minimizeJar>
               <artifactSet>
-                <includes>
-                  <include>com.github.susom:vertx-base</include>
-                  <include>org.apache.commons:commons-lang3</include>
-                  <include>org.springframework:spring-core</include>
-                </includes>
+                <excludes>
+                  <exclude>org.apache.commons:commons-lang3</exclude>
+                  <exclude>org.springframework:spring-core</exclude>
+                </excludes>
               </artifactSet>
             </configuration>
           </execution>

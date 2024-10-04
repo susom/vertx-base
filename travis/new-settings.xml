@@ -1,27 +1,26 @@
 <settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
           xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 http://maven.apache.org/xsd/settings-1.0.0.xsd">
+
   <servers>
     <server>
       <id>artifact-registry</id>
       <configuration>
         <httpConfiguration>
-          <get>
-            <usePreemptive>true</usePreemptive>
-          </get>
-          <head>
-            <usePreemptive>true</usePreemptive>
-          </head>
-          <put>
-            <params>
-              <property>
-                <name>http.protocol.expect-continue</name>
-                <value>false</value>
-              </property>
-            </params>
-          </put>
+          <all>
+            <connectTimeout>60000</connectTimeout>
+            <readTimeout>60000</readTimeout>
+          </all>
         </httpConfiguration>
       </configuration>
     </server>
   </servers>
+
+  <mirrors>
+    <mirror>
+      <id>artifact-registry</id>
+      <url>https://us-west1-maven.pkg.dev/som-rit-infrastructure-prod/public-maven</url>
+      <mirrorOf>*</mirrorOf>
+    </mirror>
+  </mirrors>
 </settings>
