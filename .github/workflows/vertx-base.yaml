@@ -11,18 +11,19 @@ jobs:
     runs-on: ubuntu-20.04
     permissions:
       contents: 'read'
-      id-token: 'write'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
+      - name: Set up Google Cloud credentials
+        run: echo "${{ secrets.ARTIFACT_REGISTRY_KEY }}" > $HOME/gcloud-key.json
+
       - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
-        with:
-          project_id: 'som-rit-infrastructure-prod'
-          workload_identity_provider: 'projects/294515190965/locations/global/workloadIdentityPools/github/providers/susom-github'
+        run: |
+          gcloud auth activate-service-account --key-file=$HOME/gcloud-key.json
+          gcloud config set project som-rit-infrastructure-prod
 
       - name: Set up JDK
         uses: actions/setup-java@v4
@@ -52,16 +53,17 @@ jobs:
     runs-on: ubuntu-20.04
     permissions:
       contents: 'read'
-      id-token: 'write'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Set up Google Cloud credentials
+        run: echo "${{ secrets.ARTIFACT_REGISTRY_KEY }}" > $HOME/gcloud-key.json
+
       - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
-        with:
-          project_id: 'som-rit-infrastructure-prod'
-          workload_identity_provider: 'projects/294515190965/locations/global/workloadIdentityPools/github/providers/susom-github'
+        run: |
+          gcloud auth activate-service-account --key-file=$HOME/gcloud-key.json
+          gcloud config set project som-rit-infrastructure-prod
 
       - name: Set up JDK
         uses: actions/setup-java@v4
