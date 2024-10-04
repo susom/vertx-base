@@ -84,4 +84,4 @@ jobs:
         run: sed -i "s/-SNAPSHOT/-build-${{ github.run_number }}/" pom.xml
 
       - name: Deploy Snapshots
-        run: mvn -s $HOME/.m2/settings.xml -Dmaven.wagon.http.retryHandler.count=3 --batch-mode -e -DskipTests=true deploy
+        run: mvn -s $HOME/.m2/settings.xml -Dmaven.wagon.http.retryHandler.count=3 --batch-mode -e -X -DskipTests=true deploy
