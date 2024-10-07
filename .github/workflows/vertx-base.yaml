@@ -23,13 +23,6 @@ jobs:
       with:
         java-version: '17'
         distribution: 'adopt'
-
-    - name: Install Maven
-      run: |
-        mvn --version  # Check current version
-        curl -sL https://apache.org/dyn/closer.cgi?action=download&filename=maven/binaries/apache-maven-3.9.4-bin.tar.gz | tar xz
-        sudo mv apache-maven-3.9.4 /opt/maven
-        sudo ln -s /opt/maven/bin/mvn /usr/bin/mvn
         
     - name: Check Maven version
       run: mvn -version
@@ -92,13 +85,6 @@ jobs:
       with:
         java-version: '17'
         distribution: 'adopt'
-
-    - name: Install Maven
-      run: |
-        mvn --version  # Check current version
-        curl -sL https://apache.org/dyn/closer.cgi?action=download&filename=maven/binaries/apache-maven-3.9.4-bin.tar.gz | tar xz
-        sudo mv apache-maven-3.9.4 /opt/maven
-        sudo ln -s /opt/maven/bin/mvn /usr/bin/mvn
         
     - name: Check Maven version
       run: mvn -version
