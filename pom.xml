@@ -146,14 +146,14 @@
   <distributionManagement>
     <repository>
       <id>artifact-registry</id>
-      <url>artifactregistry://us-west1-maven.pkg.dev/som-rit-infrastructure-prod/public-maven</url>
+      <url>https://us-west1-maven.pkg.dev/som-rit-infrastructure-prod/public-maven</url>
     </repository>
   </distributionManagement>
 
   <repositories>
     <repository>
       <id>artifact-registry</id>
-      <url>artifactregistry://us-west1-maven.pkg.dev/som-rit-infrastructure-prod/public-maven</url>
+      <url>https://us-west1-maven.pkg.dev/som-rit-infrastructure-prod/public-maven</url>
       <releases>
         <enabled>true</enabled>
       </releases>
@@ -179,7 +179,7 @@
         <configuration>
           <!-- Deploy to GCP Artifact Registry -->
           <repositoryId>artifact-registry</repositoryId>
-          <url>artifactregistry://us-west1-maven.pkg.dev/som-rit-infrastructure-prod/public-maven</url>
+          <url>https://us-west1-maven.pkg.dev/som-rit-infrastructure-prod/public-maven</url>
         </configuration>
       </plugin>
       <plugin>
