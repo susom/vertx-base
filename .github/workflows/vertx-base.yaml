@@ -33,6 +33,10 @@ jobs:
         project_id: 'som-rit-infrastructure-prod'
         workload_identity_provider: 'projects/294515190965/locations/global/workloadIdentityPools/github/providers/susom-github'
 
+    - name: Set up OAuth2 access token for Maven
+      run: |
+        echo "ACCESS_TOKEN=$(gcloud auth print-access-token)" >> $GITHUB_ENV
+          
     - name: Configure Maven Artifact Registry
       run: |
         echo "<settings>
@@ -40,7 +44,7 @@ jobs:
             <server>
               <id>artifact-registry</id>
               <username>oauth2accesstoken</username>
-              <password>$(gcloud auth print-access-token)</password>
+              <password>${env.ACCESS_TOKEN}</password>
             </server>
           </servers>
         </settings>" > $HOME/.m2/settings.xml
