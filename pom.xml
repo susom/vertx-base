@@ -142,22 +142,24 @@
     <url>https://github.com/susom/vertx-base</url>
     <tag>HEAD</tag>
   </scm>
-
+  
   <distributionManagement>
-    <snapshotRepository>
-      <id>artifact-registry</id>
-      <url>https://us-west1-maven.pkg.dev/som-rit-infrastructure-prod/public-maven</url>
-    </snapshotRepository>
     <repository>
       <id>artifact-registry</id>
-      <url>https://us-west1-maven.pkg.dev/som-rit-infrastructure-prod/public-maven</url>
+      <url>artifactregistry://us-west1-maven.pkg.dev/som-rit-infrastructure-prod/public-maven</url>
     </repository>
   </distributionManagement>
 
   <repositories>
     <repository>
       <id>artifact-registry</id>
-      <url>https://us-west1-maven.pkg.dev/som-rit-infrastructure-prod/public-maven</url>
+      <url>artifactregistry://us-west1-maven.pkg.dev/som-rit-infrastructure-prod/public-maven</url>
+      <releases>
+        <enabled>true</enabled>
+      </releases>
+      <snapshots>
+        <enabled>false</enabled>
+      </snapshots>
     </repository>
   </repositories>
 
@@ -177,7 +179,7 @@
         <configuration>
           <!-- Deploy to GCP Artifact Registry -->
           <repositoryId>artifact-registry</repositoryId>
-          <url>artifactregistry:https://us-west1-maven.pkg.dev/som-rit-infrastructure-prod/public-maven</url>
+          <url>artifactregistry://us-west1-maven.pkg.dev/som-rit-infrastructure-prod/public-maven</url>
         </configuration>
       </plugin>
       <plugin>
@@ -303,15 +305,6 @@
   </build>
 
   <profiles>
-    <profile>
-      <id>deploy-snapshots</id>
-      <activation>
-        <activeByDefault>false</activeByDefault>
-      </activation>
-      <properties>
-        <gcp.artifact.registry.snapshot>true</gcp.artifact.registry.snapshot>
-      </properties>
-    </profile>
     <profile>
       <id>coverage</id>
       <build>
