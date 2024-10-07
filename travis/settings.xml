@@ -5,26 +5,17 @@
   <servers>
     <server>
       <id>artifact-registry</id>
-      <!-- <username>_json_key_base64</username>
-      <password>${env.ARTIFACT_REGISTRY_KEY}</password> -->
-      <!-- <configuration>
-        <httpConfiguration>
-          <get>
-            <usePreemptive>true</usePreemptive>
-          </get>
-          <head>
-            <usePreemptive>true</usePreemptive>
-          </head>
-          <put>
-            <params>
-              <property>
-                <name>http.protocol.expect-continue</name>
-                <value>false</value>
-              </property>
-            </params>
-          </put>
-        </httpConfiguration>
-      </configuration> -->
+      <username>oauth2accesstoken</username>
+      <password>${env.ACCESS_TOKEN}</password>
     </server>
   </servers>
+  <repositories>
+    <repository>
+      <id>artifact-registry</id>
+      <url>https://us-west1-maven.pkg.dev/som-rit-infrastructure-prod/public-maven</url>
+      <snapshots>
+        <enabled>false</enabled>
+      </snapshots>
+    </repository>
+  </repositories>
 </settings>
