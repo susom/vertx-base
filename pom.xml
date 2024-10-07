@@ -1,7 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
   <groupId>com.github.susom</groupId>
@@ -50,7 +48,7 @@
       <optional>true</optional>
     </dependency>
     <dependency>
-      <!-- Overrides older versions in Vert.x -->
+      <!-- Not directly required, overrides the older versions in Vert.x -->
       <groupId>com.fasterxml.jackson.core</groupId>
       <artifactId>jackson-databind</artifactId>
       <version>2.13.4.2</version>
@@ -129,6 +127,15 @@
     </license>
   </licenses>
 
+  <developers>
+    <developer>
+      <name>Garrick Olson</name>
+      <email>garricko@stanford.edu</email>
+      <organization>Stanford Medicine</organization>
+      <organizationUrl>https://med.stanford.edu</organizationUrl>
+    </developer>
+  </developers>
+
   <scm>
     <connection>scm:git:https://github.com/susom/vertx-base.git</connection>
     <developerConnection>scm:git:https://github.com/susom/vertx-base.git</developerConnection>
@@ -158,7 +165,6 @@
 
   <build>
     <plugins>
-      <!-- Compiler plugin for building the project -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
@@ -168,8 +174,6 @@
           <target>17</target>
         </configuration>
       </plugin>
-
-      <!-- Maven Shade plugin for packaging with dependencies -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-shade-plugin</artifactId>
@@ -212,8 +216,6 @@
           </execution>
         </executions>
       </plugin>
-
-      <!-- Surefire plugin for testing -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
@@ -222,8 +224,6 @@
           <redirectTestOutputToFile>true</redirectTestOutputToFile>
         </configuration>
       </plugin>
-
-      <!-- Maven JAR plugin -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-jar-plugin</artifactId>
@@ -238,8 +238,6 @@
           </execution>
         </executions>
       </plugin>
-
-      <!-- Maven Source plugin for attaching sources -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-source-plugin</artifactId>
@@ -258,8 +256,6 @@
           </execution>
         </executions>
       </plugin>
-
-      <!-- Maven Javadoc plugin for attaching Javadocs -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-javadoc-plugin</artifactId>
@@ -276,35 +272,3 @@
           </execution>
         </executions>
       </plugin>
-    </plugins>
-  </build>
-
-  <profiles>
-    <profile>
-      <id>coverage</id>
-      <build>
-        <plugins>
-          <plugin>
-            <groupId>org.jacoco</groupId>
-            <artifactId>jacoco-maven-plugin</artifactId>
-            <version>0.8.11</version>
-            <executions>
-              <execution>
-                <id>default-prepare-agent</id>
-                <goals>
-                  <goal>prepare-agent</goal>
-                </goals>
-              </execution>
-              <execution>
-                <id>default-report</id>
-                <goals>
-                  <goal>report</goal>
-                </goals>
-              </execution>
-            </executions>
-          </plugin>
-        </plugins>
-      </build>
-    </profile>
-  </profiles>
-</project>
