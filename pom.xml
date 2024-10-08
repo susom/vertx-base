@@ -1,11 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
   <groupId>com.github.susom</groupId>
   <artifactId>vertx-base</artifactId>
   <packaging>jar</packaging>
-  <version>3.0-SNAPSHOT</version>
+  <version>3.1-SNAPSHOT</version>
 
   <name>${project.groupId}:${project.artifactId}</name>
   <description>Useful extensions to Vert.x for web applications.</description>
@@ -21,7 +23,7 @@
     <dependency>
       <groupId>com.github.susom</groupId>
       <artifactId>database</artifactId>
-      <version>5.0-build-2401</version>
+      <version>5.0-build-2399</version>
     </dependency>
     <dependency>
       <groupId>org.apache.commons</groupId>
@@ -48,7 +50,7 @@
       <optional>true</optional>
     </dependency>
     <dependency>
-      <!-- Not directly required, overrides the older versions in Vert.x -->
+      <!-- Overrides older versions in Vert.x -->
       <groupId>com.fasterxml.jackson.core</groupId>
       <artifactId>jackson-databind</artifactId>
       <version>2.13.4.2</version>
@@ -127,22 +129,13 @@
     </license>
   </licenses>
 
-  <developers>
-    <developer>
-      <name>Garrick Olson</name>
-      <email>garricko@stanford.edu</email>
-      <organization>Stanford Medicine</organization>
-      <organizationUrl>https://med.stanford.edu</organizationUrl>
-    </developer>
-  </developers>
-
   <scm>
     <connection>scm:git:https://github.com/susom/vertx-base.git</connection>
     <developerConnection>scm:git:https://github.com/susom/vertx-base.git</developerConnection>
     <url>https://github.com/susom/vertx-base</url>
     <tag>HEAD</tag>
   </scm>
-  
+
   <distributionManagement>
     <repository>
       <id>artifact-registry</id>
@@ -164,33 +157,8 @@
   </repositories>
 
   <build>
-    <extensions>
-      <extension>
-        <groupId>com.google.cloud.artifactregistry</groupId>
-        <artifactId>artifactregistry-maven-wagon</artifactId>
-        <version>2.2.0</version>
-      </extension>
-    </extensions>
     <plugins>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-deploy-plugin</artifactId>
-        <version>2.7</version>
-        <configuration>
-          <!-- Deploy to GCP Artifact Registry -->
-          <repositoryId>artifact-registry</repositoryId>
-          <url>https://us-west1-maven.pkg.dev/som-rit-infrastructure-prod/public-maven</url>
-        </configuration>
-      </plugin>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-release-plugin</artifactId>
-        <version>3.0.0-M1</version>
-        <configuration>
-          <autoVersionSubmodules>true</autoVersionSubmodules>
-          <releaseProfiles>deploy-snapshots</releaseProfiles>
-        </configuration>
-      </plugin>
+      <!-- Compiler plugin for building the project -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
@@ -200,6 +168,8 @@
           <target>17</target>
         </configuration>
       </plugin>
+
+      <!-- Maven Shade plugin for packaging with dependencies -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-shade-plugin</artifactId>
@@ -242,6 +212,8 @@
           </execution>
         </executions>
       </plugin>
+
+      <!-- Surefire plugin for testing -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
@@ -250,6 +222,8 @@
           <redirectTestOutputToFile>true</redirectTestOutputToFile>
         </configuration>
       </plugin>
+
+      <!-- Maven JAR plugin -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-jar-plugin</artifactId>
@@ -264,6 +238,8 @@
           </execution>
         </executions>
       </plugin>
+
+      <!-- Maven Source plugin for attaching sources -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-source-plugin</artifactId>
@@ -282,6 +258,8 @@
           </execution>
         </executions>
       </plugin>
+
+      <!-- Maven Javadoc plugin for attaching Javadocs -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-javadoc-plugin</artifactId>
@@ -298,9 +276,6 @@
           </execution>
         </executions>
       </plugin>
-      <!-- NOTE: We are using the maven release plugin to deploy to Maven Central, see:
-     https://central.sonatype.org/pages/apache-maven.html#performing-a-release-deployment-with-the-maven-release-plugin
-     for explanation as to why the useReleaseProfile is set to false. -->
     </plugins>
   </build>
 
