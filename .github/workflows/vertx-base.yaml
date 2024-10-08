@@ -4,100 +4,94 @@ on:
   push:
   pull_request:
   workflow_dispatch:
-  schedule:
-    - cron: '0 0 * * *' # Cron job to run daily at midnight (UTC)
 
 jobs:
   test:
+    name: Test
     runs-on: ubuntu-20.04
     permissions:
       contents: 'read'
       id-token: 'write'
-
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-    - name: Set up JDK 17
-      uses: actions/setup-java@v3
-      with:
-        java-version: '17'
-        distribution: 'adopt'
-        
-    - name: Check Maven version
-      run: mvn -version
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          project_id: 'som-rit-infrastructure-prod'
+          workload_identity_provider: 'projects/294515190965/locations/global/workloadIdentityPools/github/providers/susom-github'
+          create_credentials_file: true
+          export_environment_variables: true
+          cleanup_credentials: true
 
-    - name: Authenticate to Google Cloud
-      uses: google-github-actions/auth@v2
-      with:
-        project_id: 'som-rit-infrastructure-prod'
-        workload_identity_provider: 'projects/294515190965/locations/global/workloadIdentityPools/github/providers/susom-github'
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'adopt'
+          java-version: 17
 
-    - name: Copy Maven settings
-      run: cp ./travis/settings.xml $HOME/.m2/settings.xml
+      - name: Cache Maven dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
 
-    - name: Cache Maven dependencies
-      uses: actions/cache@v3
-      with:
-        path: ~/.m2/repository
-        key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-        restore-keys: |
-          ${{ runner.os }}-maven-
+      - name: Copy Maven settings
+        run: cp ./travis/settings.xml $HOME/.m2/settings.xml
 
-    - name: Install dependencies
-      run: mvn install -DskipTests=true
+      - name: Update POM Version
+        run: sed -i "s/-SNAPSHOT/-build-${{ github.run_number }}/" pom.xml
 
-    - name: Update version in pom.xml
-      run: sed -i "s/-SNAPSHOT/-build-${{ github.run_number }}/" pom.xml
-
-    - name: Display Surefire reports on failure
-      if: failure()
-      run: |
-        echo "\n=== SUREFIRE REPORTS ===\n"
-        for F in target/surefire-reports/*.txt; do echo $F; cat $F; echo; done
+      - name: Run Maven Tests
+        run: mvn -e verify --settings $HOME/.m2/settings.xml
 
   deploy_snapshots:
-    if: github.event_name == 'push'
     name: Deploy Snapshots
     runs-on: ubuntu-20.04
     permissions:
       contents: 'read'
       id-token: 'write'
-    
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Set up JDK 17
-      uses: actions/setup-java@v4
-      with:
-        java-version: '17'
-        distribution: 'adopt'
-        
-    - name: Check Maven version
-      run: mvn -version
-      
-    - name: Authenticate to Google Cloud
-      uses: google-github-actions/auth@v2
-      with:
-        project_id: 'som-rit-infrastructure-prod'
-        workload_identity_provider: 'projects/294515190965/locations/global/workloadIdentityPools/github/providers/susom-github'
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          project_id: 'som-rit-infrastructure-prod'
+          workload_identity_provider: 'projects/294515190965/locations/global/workloadIdentityPools/github/providers/susom-github'
+          create_credentials_file: true
+          export_environment_variables: true
+          cleanup_credentials: true
 
-    - name: Set up OAuth2 access token for Maven
-      run: |
-        echo "ACCESS_TOKEN=$(gcloud auth print-access-token)" >> $GITHUB_ENV
+      - name: Set up OAuth2 access token for Maven
+        run: |
+          echo "ACCESS_TOKEN=$(gcloud auth print-access-token)" >> $GITHUB_ENV
+          
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'adopt'
+          java-version: 17
 
-    - name: Copy Maven settings
-      run: cp ./travis/settings.xml $HOME/.m2/settings.xml
+      - name: Cache Maven dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
 
-    - name: Cache Maven dependencies
-      uses: actions/cache@v3
-      with:
-        path: ~/.m2/repository
-        key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-        restore-keys: |
-          ${{ runner.os }}-maven-
+      - name: Copy Maven settings for deploy
+        run: cp ./travis/settings.xml $HOME/.m2/settings.xml
 
-    - name: Deploy Snapshots
-      run: |
-        mvn -U -Dmaven.wagon.http.retryHandler.count=3 --batch-mode -e -DskipTests=true deploy -X
+      - name: Update POM Version for deploy
+        run: sed -i "s/-SNAPSHOT/-build-${{ github.run_number }}/" pom.xml
+
+      - name: Deploy Snapshots
+        run: mvn -s $HOME/.m2/settings.xml -Dmaven.wagon.http.retryHandler.count=3 --batch-mode -e -DskipTests=true deploy
