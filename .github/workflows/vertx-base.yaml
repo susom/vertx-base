@@ -4,6 +4,8 @@ on:
   push:
   pull_request:
   workflow_dispatch:
+  schedule:
+    - cron: "0 8 * * *"
 
 jobs:
   test:
@@ -42,10 +44,10 @@ jobs:
             ${{ runner.os }}-maven-
 
       - name: Copy Maven settings
-        run: cp ./travis/new-settings.xml $HOME/.m2/settings.xml
+        run: cp ./travis/actions-maven-settings.xml $HOME/.m2/settings.xml
 
       - name: Update POM Version
-        run: sed -i "s/-SNAPSHOT/-build-${{ github.run_number }}/" pom.xml
+        run: sed -i "s/-SNAPSHOT/-github-build-${{ github.run_number }}/" pom.xml
 
       - name: Run Maven Tests
         run: mvn -e verify --settings $HOME/.m2/settings.xml
@@ -53,6 +55,7 @@ jobs:
   deploy_snapshots:
     name: Deploy Snapshots
     runs-on: ubuntu-20.04
+    if: github.ref == 'refs/heads/master'
     permissions:
       contents: 'read'
       id-token: 'write'
@@ -72,7 +75,7 @@ jobs:
       - name: Set up OAuth2 access token for Maven
         run: |
           echo "ACCESS_TOKEN=$(gcloud auth print-access-token)" >> $GITHUB_ENV
-          
+
       - name: Set up JDK
         uses: actions/setup-java@v4
         with:
@@ -88,10 +91,10 @@ jobs:
             ${{ runner.os }}-maven-
 
       - name: Copy Maven settings for deploy
-        run: cp ./travis/new-settings.xml $HOME/.m2/settings.xml
+        run: cp ./travis/actions-maven-settings.xml $HOME/.m2/settings.xml
 
       - name: Update POM Version for deploy
-        run: sed -i "s/-SNAPSHOT/-build-${{ github.run_number }}/" pom.xml
+        run: sed -i "s/-SNAPSHOT/-github-build-${{ github.run_number }}/" pom.xml
 
       - name: Deploy Snapshots
         run: mvn -s $HOME/.m2/settings.xml -Dmaven.wagon.http.retryHandler.count=3 --batch-mode -e -DskipTests=true deploy
