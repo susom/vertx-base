@@ -11,19 +11,21 @@ jobs:
     runs-on: ubuntu-20.04
     permissions:
       contents: 'read'
+      id-token: 'write'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Decode and Set up Google Cloud credentials
-        run: echo "${{ secrets.ARTIFACT_REGISTRY_KEY }}" | base64 -d > $HOME/gcloud-key.json
-
       - name: Authenticate to Google Cloud
-        run: |
-          gcloud auth activate-service-account --key-file=$HOME/gcloud-key.json
-          gcloud config set project som-rit-infrastructure-prod
+        uses: google-github-actions/auth@v2
+        with:
+          project_id: 'som-rit-infrastructure-prod'
+          workload_identity_provider: 'projects/294515190965/locations/global/workloadIdentityPools/github/providers/susom-github'
+          create_credentials_file: true
+          export_environment_variables: true
+          cleanup_credentials: true
 
       - name: Set up JDK
         uses: actions/setup-java@v4
@@ -53,18 +55,24 @@ jobs:
     runs-on: ubuntu-20.04
     permissions:
       contents: 'read'
+      id-token: 'write'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Decode and Set up Google Cloud credentials
-        run: echo "${{ secrets.ARTIFACT_REGISTRY_KEY }}" | base64 -d > $HOME/gcloud-key.json
-
       - name: Authenticate to Google Cloud
-        run: |
-          gcloud auth activate-service-account --key-file=$HOME/gcloud-key.json
-          gcloud config set project som-rit-infrastructure-prod
+        uses: google-github-actions/auth@v2
+        with:
+          project_id: 'som-rit-infrastructure-prod'
+          workload_identity_provider: 'projects/294515190965/locations/global/workloadIdentityPools/github/providers/susom-github'
+          create_credentials_file: true
+          export_environment_variables: true
+          cleanup_credentials: true
 
+      - name: Set up OAuth2 access token for Maven
+        run: |
+          echo "ACCESS_TOKEN=$(gcloud auth print-access-token)" >> $GITHUB_ENV
+          
       - name: Set up JDK
         uses: actions/setup-java@v4
         with:
@@ -85,23 +93,5 @@ jobs:
       - name: Update POM Version for deploy
         run: sed -i "s/-SNAPSHOT/-build-${{ github.run_number }}/" pom.xml
 
-      - name: Generate Sources and Javadocs
-        run: mvn source:jar javadoc:jar
-
-      - name: List files before upload
-        run: ls target/
-
-      - name: Deploy Snapshots with Retry Logic
-        run: |
-          success=false
-          for i in {1..5}; do
-            mvn -s $HOME/.m2/settings.xml \
-                -Dmaven.wagon.http.retryHandler.count=5 \
-                -Dmaven.wagon.httpconnectionManager.ttlSeconds=120 \
-                -Dmaven.wagon.http.timeout=7200000 \
-                --batch-mode -e -DskipTests=true deploy -X && success=true && break || sleep 60;
-          done
-          if [ "$success" = false ]; then
-            echo "Maven deploy failed after 5 attempts." >&2
-            exit 1
-          fi
+      - name: Deploy Snapshots
+        run: mvn -s $HOME/.m2/settings.xml -Dmaven.wagon.http.retryHandler.count=3 --batch-mode -e -DskipTests=true deploy
