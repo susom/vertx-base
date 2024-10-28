@@ -59,7 +59,8 @@ jobs:
   deploy_snapshots:
     name: Deploy Snapshots
     runs-on: ubuntu-20.04
-    if: github.ref == 'refs/heads/master' && github.event_name == 'push'
+    if: github.repository == 'susom/vertx-base' && github.ref == 'refs/heads/master' && github.event_name == 'push'
+    needs: test
     permissions:
       contents: 'read'
       id-token: 'write'
