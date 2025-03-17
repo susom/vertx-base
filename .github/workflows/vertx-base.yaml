@@ -43,6 +43,7 @@ jobs:
       - name: Run Maven Tests
         run: mvn -e verify --settings $HOME/.m2/settings.xml
 
+  # deploys into Artifact Registry when code is pushed to the master branch of the 'susom/vertx-base' repository.
   deploy_snapshots:
     name: Deploy Snapshots
     runs-on: ubuntu-20.04
