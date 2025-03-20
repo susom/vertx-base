@@ -10,7 +10,7 @@ on:
 jobs:
   test:
     name: Test
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     permissions:
       contents: 'read'
       id-token: 'write'
@@ -46,7 +46,7 @@ jobs:
   # deploys into Artifact Registry when code is pushed to the master branch of the 'susom/vertx-base' repository.
   deploy_snapshots:
     name: Deploy Snapshots
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     if: github.repository == 'susom/vertx-base' && github.ref == 'refs/heads/master' && github.event_name == 'push'
     needs: test
     permissions:
