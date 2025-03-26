@@ -167,7 +167,7 @@ public class VertxBase {
         log.trace("Re-seeded secure random " + metric.getMessage());
       }
       f.complete();
-    }, r -> {
+    }, false,r -> {
       if (r.failed()) {
         log.warn("Problem re-seeding secure random", r.cause());
       }
