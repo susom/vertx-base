@@ -130,7 +130,7 @@ public class EmailLoginAuthenticator implements Security {
     mailgunDomain = config.getString(MAILGUN_DOMAIN);
     mailgunApiKey = config.getString(MAILGUN_API_KEY);
     mailgunFrom = config.getString(MAILGUN_FROM);
-    mailgunReplyTo = config.getString(MAILGUN_REPLY_TO);
+    mailgunReplyTo = config.getString(MAILGUN_REPLY_TO);  // optional config setting to set a reply-to address
 
     if (mailgunDomain == null || mailgunApiKey == null || mailgunFrom == null) {
       log.warn("Config mailgun.domain, mailgun.api.key, or mailgun.from is not set so we will log emails instead of sending");
@@ -370,6 +370,7 @@ public class EmailLoginAuthenticator implements Security {
           QueryStringEncoder enc = new QueryStringEncoder("");
           enc.addParam("from", mailgunFrom);
           enc.addParam("to", email);
+          // If we have a mailgun reply-to address (optional), add it to the email header
           if (mailgunReplyTo != null) {
             enc.addParam("h:Reply-To", mailgunReplyTo);
           }
