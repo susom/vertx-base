@@ -1,6 +1,5 @@
 ## Base Functionality for Vert.x Applications
 
-[![Build Status](https://app.travis-ci.com/susom/vertx-base.svg?branch=master)](https://app.travis-ci.com/susom/vertx-base)
 [![Maven Central](https://maven-badges.herokuapp.com/maven-central/com.github.susom/vertx-base/badge.svg)](https://maven-badges.herokuapp.com/maven-central/com.github.susom/vertx-base)
 
 This project provides common functionality for writing Vert.x applications in a safe and maintainable way.
