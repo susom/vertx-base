@@ -16,6 +16,7 @@ package com.github.susom.vertx.base.test;
 
 import com.github.susom.vertx.base.VertxBase;
 import io.vertx.core.Vertx;
+import io.vertx.core.http.HttpMethod;
 import io.vertx.ext.unit.Async;
 import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
@@ -46,15 +47,21 @@ public class ClientTest {
         .listen(8101, server -> {
           MDC.put("foo", "bar");
           log.debug("Server up: {}", Vertx.currentContext());
-          vertx.createHttpClient().get(8101, "localhost", "/foo").handler(VertxBase.mdc(response -> {
-            log.debug("Client got response: {}", Vertx.currentContext());
-            context.assertEquals("bar", MDC.get("foo"));
-            response.bodyHandler(VertxBase.mdc(body -> {
-              log.debug("Client got body: {}", Vertx.currentContext());
-              context.assertEquals("bar", MDC.get("foo"));
-              vertx.close(closed -> async.complete());
-            }));
-          })).end();
+          vertx.createHttpClient().request(HttpMethod.GET, 8101, "localhost", "/foo")
+              .compose(req -> req.send())
+              .onSuccess(VertxBase.mdc(response -> {
+                log.debug("Client got response: {}", Vertx.currentContext());
+                context.assertEquals("bar", MDC.get("foo"));
+                response.bodyHandler(VertxBase.mdc(body -> {
+                  log.debug("Client got body: {}", Vertx.currentContext());
+                  context.assertEquals("bar", MDC.get("foo"));
+                  vertx.close(closed -> async.complete());
+                }));
+              }))
+              .onFailure(err -> {
+                log.error("Request failed", err);
+                context.fail(err);
+              });
           MDC.clear();
     });
   }

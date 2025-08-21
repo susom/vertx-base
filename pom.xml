@@ -12,7 +12,7 @@
   <url>https://github.com/susom/vertx-base</url>
 
   <properties>
-    <vertx.version>3.9.16</vertx.version>
+    <vertx.version>4.5.18</vertx.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
   </properties>
@@ -51,7 +51,7 @@
       <!-- Not directly required, overrides the older versions in Vert.x -->
       <groupId>com.fasterxml.jackson.core</groupId>
       <artifactId>jackson-databind</artifactId>
-      <version>2.13.4.2</version>
+      <version>2.15.2</version>
     </dependency>
     <dependency>
       <groupId>io.vertx</groupId>
