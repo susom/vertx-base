@@ -19,7 +19,7 @@ import io.vertx.core.AsyncResult;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.json.JsonObject;
-import io.vertx.ext.auth.AbstractUser;
+
 import io.vertx.ext.auth.AuthProvider;
 import io.vertx.ext.auth.User;
 import io.vertx.ext.web.RoutingContext;
@@ -31,7 +31,7 @@ import java.util.stream.Collectors;
  *
  * @author garricko
  */
-public class AuthenticatedUser extends AbstractUser {
+public class AuthenticatedUser implements User {
   // TODO need to figure out issuer/domain/pk representation
   private final String authenticatedAs;
   private final String actingAs;
@@ -67,11 +67,11 @@ public class AuthenticatedUser extends AbstractUser {
   }
 
   @Override
-  protected void doIsPermitted(String permission, Handler<AsyncResult<Boolean>> resultHandler) {
-    if (authority.contains(permission)) {
-      resultHandler.handle(Future.succeededFuture(true));
+  public Future<Boolean> isAuthorized(String authority) {
+    if (this.authority.contains(authority)) {
+      return Future.succeededFuture(true);
     } else {
-      resultHandler.handle(Future.succeededFuture(false));
+      return Future.succeededFuture(false);
     }
   }
 

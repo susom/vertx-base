@@ -118,15 +118,15 @@ public class FakeAuthenticator implements Security {
         if (cookieHeader != null) {
           Set<Cookie> nettyCookies = ServerCookieDecoder.STRICT.decode(cookieHeader);
           for (Cookie cookie : nettyCookies) {
-            io.vertx.ext.web.Cookie ourCookie = new CookieImpl(cookie);
+            io.vertx.core.http.Cookie ourCookie = new CookieImpl(cookie);
             rc.addCookie(ourCookie);
           }
         }
 
         rc.addHeadersEndHandler(v -> {
           // save the cookies
-          Set<io.vertx.ext.web.Cookie> cookies = rc.cookies();
-          for (io.vertx.ext.web.Cookie cookie : cookies) {
+          Set<io.vertx.core.http.Cookie> cookies = rc.cookies();
+          for (io.vertx.core.http.Cookie cookie : cookies) {
             if (cookie.isChanged()) {
               rc.response().headers().add(SET_COOKIE, cookie.encode());
             }
@@ -159,7 +159,7 @@ public class FakeAuthenticator implements Security {
       String state = new TokenGenerator(secureRandom).create(15);
       params.addParam("state", state);
 
-      rc.response().headers().add(SET_COOKIE, io.vertx.ext.web.Cookie.cookie("state", state)
+      rc.response().headers().add(SET_COOKIE, io.vertx.core.http.Cookie.cookie("state", state)
           .setHttpOnly(true)
           .setPath(rc.mountPoint() + "/")
           .setSecure(redirectUri(rc).startsWith("https")).encode());
@@ -188,7 +188,7 @@ public class FakeAuthenticator implements Security {
 //      String state = new TokenGenerator(secureRandom).create(15);
 //      params.addParam("state", state);
 //
-//      rc.response().headers().add(SET_COOKIE, io.vertx.ext.web.Cookie.cookie("state", state)
+//      rc.response().headers().add(SET_COOKIE, io.vertx.core.http.Cookie.cookie("state", state)
 //          .setHttpOnly(true)
 //          .setPath(rc.mountPoint() + "/")
 //          .setSecure(redirectUri(rc).startsWith("https")).encode());
@@ -215,7 +215,7 @@ public class FakeAuthenticator implements Security {
       String state = new TokenGenerator(secureRandom).create(15);
       params.addParam("state", state);
 
-      rc.response().headers().add(SET_COOKIE, io.vertx.ext.web.Cookie.cookie("state", state)
+      rc.response().headers().add(SET_COOKIE, io.vertx.core.http.Cookie.cookie("state", state)
           .setHttpOnly(true)
           .setPath(rc.mountPoint() + "/")
           .setSecure(redirectUri(rc).startsWith("https")).encode());
@@ -328,7 +328,7 @@ public class FakeAuthenticator implements Security {
   public Handler<RoutingContext> callbackHandler() {
     return rc -> {
       // XSRF prevention: Verify the state value provided to login call
-      io.vertx.ext.web.Cookie state = rc.getCookie("state");
+      io.vertx.core.http.Cookie state = rc.getCookie("state");
       if (state != null) {
         String stateParam = rc.request().getParam("state");
         if (stateParam == null || stateParam.length() == 0) {
@@ -380,10 +380,10 @@ public class FakeAuthenticator implements Security {
               session.authoritySets.put(DEFAULT_AUTHORITY_SET, authoritySet);
               sessions.put(sessionToken, session);
 
-              io.vertx.ext.web.Cookie sessionCookie = io.vertx.ext.web.Cookie.cookie("session_token",
+              io.vertx.core.http.Cookie sessionCookie = io.vertx.core.http.Cookie.cookie("session_token",
                   sessionToken).setHttpOnly(true)
                   .setSecure(redirectUri(rc).startsWith("https"));
-              io.vertx.ext.web.Cookie xsrfCookie = io.vertx.ext.web.Cookie.cookie("XSRF-TOKEN",
+              io.vertx.core.http.Cookie xsrfCookie = io.vertx.core.http.Cookie.cookie("XSRF-TOKEN",
                   new TokenGenerator(secureRandom).create())
                   .setSecure(redirectUri(rc).startsWith("https"));
 
@@ -437,7 +437,7 @@ public class FakeAuthenticator implements Security {
         String state = new TokenGenerator(secureRandom).create(15);
         params.addParam("state", state);
 
-        rc.response().headers().add(SET_COOKIE, io.vertx.ext.web.Cookie.cookie("state", state)
+        rc.response().headers().add(SET_COOKIE, io.vertx.core.http.Cookie.cookie("state", state)
             .setHttpOnly(true)
             .setSecure(redirectUri(rc).startsWith("https")).encode());
 
@@ -461,8 +461,8 @@ public class FakeAuthenticator implements Security {
       fromEnc.addParam("redirect_uri", VertxBase.absolutePath(config::getString, rc) + "?done=yes");
 
       rc.response().headers()
-          .add(SET_COOKIE, io.vertx.ext.web.Cookie.cookie("session_token", "").setMaxAge(0).encode())
-          .add(SET_COOKIE, io.vertx.ext.web.Cookie.cookie("XSRF-TOKEN", "").setMaxAge(0).encode())
+          .add(SET_COOKIE, io.vertx.core.http.Cookie.cookie("session_token", "").setMaxAge(0).encode())
+          .add(SET_COOKIE, io.vertx.core.http.Cookie.cookie("XSRF-TOKEN", "").setMaxAge(0).encode())
           .add("location", logoutUrl + fromEnc);
       rc.response().setStatusCode(302).end();
     };
@@ -557,7 +557,7 @@ public class FakeAuthenticator implements Security {
         }
 
         if (mandatory && checkXsrf) {
-          io.vertx.ext.web.Cookie xsrf = rc.getCookie("XSRF-TOKEN");
+          io.vertx.core.http.Cookie xsrf = rc.getCookie("XSRF-TOKEN");
           if (xsrf != null) {
             String xsrfHeader = rc.request().getHeader("X-XSRF-TOKEN");
             if (xsrfHeader == null || xsrfHeader.length() == 0) {
@@ -580,7 +580,7 @@ public class FakeAuthenticator implements Security {
           }
         }
 
-        io.vertx.ext.web.Cookie sessionCookie = rc.getCookie("session_token");
+        io.vertx.core.http.Cookie sessionCookie = rc.getCookie("session_token");
         if (sessionCookie != null && sessionCookie.getValue() != null) {
           Session session = sessions.get(sessionCookie.getValue());
           // TODO handle case where session is not in our cache and we need to get it from the coordinator
