@@ -21,7 +21,7 @@
     <dependency>
       <groupId>com.github.susom</groupId>
       <artifactId>database</artifactId>
-      <version>4.0</version>
+      <version>5.0-github-build-257</version>
     </dependency>
     <dependency>
       <groupId>org.apache.commons</groupId>
