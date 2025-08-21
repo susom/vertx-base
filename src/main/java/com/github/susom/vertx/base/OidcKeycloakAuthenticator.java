@@ -35,18 +35,19 @@ import com.github.susom.database.Config;
 import com.github.susom.database.Metric;
 
 import io.netty.handler.codec.http.QueryStringEncoder;
-import io.netty.handler.codec.http.cookie.Cookie;
+
 import io.netty.handler.codec.http.cookie.ServerCookieDecoder;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
+import io.vertx.core.http.Cookie;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.HttpClientOptions;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.auth.jwt.JWTAuth;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
-import io.vertx.ext.web.handler.CookieHandler;
-import io.vertx.ext.web.impl.CookieImpl;
+
+import io.vertx.core.http.impl.CookieImpl;
 
 import static com.github.susom.vertx.base.VertxBase.absoluteContext;
 import static com.github.susom.vertx.base.VertxBase.mdc;
@@ -67,7 +68,7 @@ public class OidcKeycloakAuthenticator implements Security {
   private static final Logger log = LoggerFactory.getLogger(OidcKeycloakAuthenticator.class);
   private static final Pattern VALID_AUTH_CODE = Pattern.compile("[\\.a-zA-Z0-9_/-]*");
   private static final String DEFAULT_AUTHORITY_SET = "self";
-  private final CookieHandler cookieHandler;
+  private final Handler<RoutingContext> cookieHandler;
   private final Handler<RoutingContext> authenticateOptional;
   private final Handler<RoutingContext> authenticateRequiredOrDeny;
   private final Handler<RoutingContext> authenticateRequiredOrRedirect302;
@@ -118,9 +119,9 @@ public class OidcKeycloakAuthenticator implements Security {
         String cookieHeader = rc.request().headers().get(COOKIE);
 
         if (cookieHeader != null) {
-          Set<Cookie> nettyCookies = ServerCookieDecoder.STRICT.decode(cookieHeader);
-          for (Cookie cookie : nettyCookies) {
-            io.vertx.core.http.Cookie ourCookie = new CookieImpl(cookie);
+          Set<io.netty.handler.codec.http.cookie.Cookie> nettyCookies = ServerCookieDecoder.STRICT.decode(cookieHeader);
+          for (io.netty.handler.codec.http.cookie.Cookie cookie : nettyCookies) {
+            Cookie ourCookie = new CookieImpl(cookie);
             rc.addCookie(ourCookie);
           }
         }
@@ -128,7 +129,7 @@ public class OidcKeycloakAuthenticator implements Security {
         rc.addHeadersEndHandler(v -> {
           // save the cookies
           Set<io.vertx.core.http.Cookie> cookies = rc.cookies();
-          for (io.vertx.core.http.Cookie cookie : cookies) {
+          for (Cookie cookie : cookies) {
             if (cookie.isChanged()) {
               rc.response().headers().add(SET_COOKIE, cookie.encode());
             }
@@ -161,7 +162,7 @@ public class OidcKeycloakAuthenticator implements Security {
       String state = new TokenGenerator(secureRandom).create(15);
       params.addParam("state", state);
 
-      rc.response().headers().add(SET_COOKIE, io.vertx.core.http.Cookie.cookie("state", state)
+      rc.response().headers().add(SET_COOKIE, Cookie.cookie("state", state)
           .setHttpOnly(true)
           .setPath(rc.mountPoint() + "/")
           .setSecure(redirectUri(rc).startsWith("https")).encode());
@@ -190,7 +191,7 @@ public class OidcKeycloakAuthenticator implements Security {
       String state = new TokenGenerator(secureRandom).create(15);
       params.addParam("state", state);
 
-      rc.response().headers().add(SET_COOKIE, io.vertx.core.http.Cookie.cookie("state", state)
+      rc.response().headers().add(SET_COOKIE, Cookie.cookie("state", state)
           .setHttpOnly(true)
           .setPath(rc.mountPoint() + "/")
           .setSecure(redirectUri(rc).startsWith("https")).encode());
@@ -217,7 +218,7 @@ public class OidcKeycloakAuthenticator implements Security {
       String state = new TokenGenerator(secureRandom).create(15);
       params.addParam("state", state);
 
-      rc.response().headers().add(SET_COOKIE, io.vertx.core.http.Cookie.cookie("state", state)
+      rc.response().headers().add(SET_COOKIE, Cookie.cookie("state", state)
           .setHttpOnly(true)
           .setPath(rc.mountPoint() + "/")
           .setSecure(redirectUri(rc).startsWith("https")).encode());
@@ -351,7 +352,7 @@ public class OidcKeycloakAuthenticator implements Security {
   public Handler<RoutingContext> callbackHandler() {
     return rc -> {
       // XSRF prevention: Verify the state value provided to login call
-      io.vertx.core.http.Cookie state = rc.getCookie("state");
+      Cookie state = rc.getCookie("state");
       if (state != null) {
         String stateParam = rc.request().getParam("state");
         if (stateParam == null || stateParam.length() == 0) {
@@ -411,10 +412,10 @@ public class OidcKeycloakAuthenticator implements Security {
               session.authoritySets.put(DEFAULT_AUTHORITY_SET, authoritySet);
               sessions.put(sessionToken, session);
 
-              io.vertx.core.http.Cookie jwtCookie = io.vertx.core.http.Cookie.cookie("session_token",
+              Cookie jwtCookie = Cookie.cookie("session_token",
                   sessionToken).setHttpOnly(true)
                   .setSecure(redirectUri(rc).startsWith("https"));
-              io.vertx.core.http.Cookie xsrfCookie = io.vertx.core.http.Cookie.cookie("XSRF-TOKEN",
+              Cookie xsrfCookie = Cookie.cookie("XSRF-TOKEN",
                   new TokenGenerator(secureRandom).create())
                   .setSecure(redirectUri(rc).startsWith("https"));
 
@@ -468,7 +469,7 @@ public class OidcKeycloakAuthenticator implements Security {
         String state = new TokenGenerator(secureRandom).create(15);
         params.addParam("state", state);
 
-        rc.response().headers().add(SET_COOKIE, io.vertx.core.http.Cookie.cookie("state", state)
+        rc.response().headers().add(SET_COOKIE, Cookie.cookie("state", state)
             .setHttpOnly(true)
             .setSecure(redirectUri(rc).startsWith("https")).encode());
 
@@ -492,8 +493,8 @@ public class OidcKeycloakAuthenticator implements Security {
       fromEnc.addParam("redirect_uri", VertxBase.absolutePath(config::getString, rc) + "?done=yes");
 
       rc.response().headers()
-          .add(SET_COOKIE, io.vertx.core.http.Cookie.cookie("session_token", "").setMaxAge(0).encode())
-          .add(SET_COOKIE, io.vertx.core.http.Cookie.cookie("XSRF-TOKEN", "").setMaxAge(0).encode())
+          .add(SET_COOKIE, Cookie.cookie("session_token", "").setMaxAge(0).encode())
+          .add(SET_COOKIE, Cookie.cookie("XSRF-TOKEN", "").setMaxAge(0).encode())
           .add("location", logoutUrl + fromEnc);
       rc.response().setStatusCode(302).end();
     };
@@ -588,7 +589,7 @@ public class OidcKeycloakAuthenticator implements Security {
         }
 
         if (mandatory && checkXsrf) {
-          io.vertx.core.http.Cookie xsrf = rc.getCookie("XSRF-TOKEN");
+          Cookie xsrf = rc.getCookie("XSRF-TOKEN");
           if (xsrf != null) {
             String xsrfHeader = rc.request().getHeader("X-XSRF-TOKEN");
             if (xsrfHeader == null || xsrfHeader.length() == 0) {
@@ -611,7 +612,7 @@ public class OidcKeycloakAuthenticator implements Security {
           }
         }
 
-        io.vertx.core.http.Cookie sessionCookie = rc.getCookie("session_token");
+        Cookie sessionCookie = rc.getCookie("session_token");
         if (sessionCookie != null && sessionCookie.getValue() != null) {
           Session session = sessions.get(sessionCookie.getValue());
           // TODO handle case where session is not in our cache and we need to get it from the coordinator
