@@ -52,6 +52,12 @@ import java.util.Base64;
 import com.nimbusds.jwt.JWT;
 import com.nimbusds.jwt.JWTParser;
 import com.nimbusds.jwt.PlainJWT;
+import com.nimbusds.jwt.SignedJWT;
+import com.nimbusds.jose.JWSVerifier;
+import com.nimbusds.jose.crypto.RSASSAVerifier;
+import java.security.interfaces.RSAPublicKey;
+import java.security.KeyFactory;
+import java.security.spec.X509EncodedKeySpec;
 
 
 
@@ -672,8 +678,7 @@ public class OidcKeycloakAuthenticator implements Security {
   }
 
   /**
-   * JWT payload decoder using proper JWT library.
-   * WARNING: This does not verify JWT signatures and should only be used for development/testing.
+   * JWT payload decoder with signature verification using configured public key.
    */
   private JsonObject decodeJwtPayload(String jwt) {
     if (jwt == null) {
@@ -681,7 +686,40 @@ public class OidcKeycloakAuthenticator implements Security {
     }
     try {
       JWT parsedJWT = JWTParser.parse(jwt);
-      String payload = parsedJWT.getJWTClaimsSet().toString();
+      
+      // Only proceed with signed JWTs
+      if (!(parsedJWT instanceof SignedJWT)) {
+        log.warn("JWT is not signed, rejecting");
+        return new JsonObject();
+      }
+      
+      SignedJWT signedJWT = (SignedJWT) parsedJWT;
+      
+      // Verify the signature using the configured public key
+      if (publicKey != null && !publicKey.isEmpty()) {
+        try {
+          // Decode the public key from base64
+          byte[] keyBytes = Base64.getDecoder().decode(publicKey);
+          X509EncodedKeySpec keySpec = new X509EncodedKeySpec(keyBytes);
+          KeyFactory keyFactory = KeyFactory.getInstance("RSA");
+          RSAPublicKey rsaPublicKey = (RSAPublicKey) keyFactory.generatePublic(keySpec);
+          
+          // Create verifier and verify signature
+          JWSVerifier verifier = new RSASSAVerifier(rsaPublicKey);
+          if (!signedJWT.verify(verifier)) {
+            log.warn("JWT signature verification failed");
+            return new JsonObject();
+          }
+        } catch (Exception e) {
+          log.error("Failed to verify JWT signature", e);
+          return new JsonObject();
+        }
+      } else {
+        log.warn("No public key configured for JWT verification");
+        return new JsonObject();
+      }
+      
+      String payload = signedJWT.getJWTClaimsSet().toString();
       return new JsonObject(payload);
     } catch (Exception e) {
       log.error("Failed to decode JWT payload", e);
