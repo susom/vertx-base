@@ -49,6 +49,10 @@ import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import java.util.Base64;
 
+import com.nimbusds.jwt.JWT;
+import com.nimbusds.jwt.JWTParser;
+import com.nimbusds.jwt.PlainJWT;
+
 
 
 import static com.github.susom.vertx.base.VertxBase.absoluteContext;
@@ -391,7 +395,7 @@ public class OidcKeycloakAuthenticator implements Security {
               if (response.statusCode() == 200) {
                 JsonObject json = new JsonObject(body.toString());
 
-                log.warn("Response from token end point: " + json.encodePrettily()); // TODO remove
+
 
                 String sessionToken = new TokenGenerator(secureRandom).create(64);
                 // Simple JWT decoding without verification (this class is marked as not production ready)
@@ -399,7 +403,7 @@ public class OidcKeycloakAuthenticator implements Security {
                 // TODO need to verify issuer, audience, etc. per spec
 
                 JsonObject access = decodeJwtPayload(json.getString("access_token"));
-                log.warn("id_token: " + id.encodePrettily() + "\naccess_token: " + access.encodePrettily()); // TODO remove
+
 
                 Session session = new Session();
                 session.username = id.getString("preferred_username");
@@ -668,19 +672,16 @@ public class OidcKeycloakAuthenticator implements Security {
   }
 
   /**
-   * Simple JWT payload decoder without verification.
-   * WARNING: This is not secure and should only be used for development/testing.
+   * JWT payload decoder using proper JWT library.
+   * WARNING: This does not verify JWT signatures and should only be used for development/testing.
    */
   private JsonObject decodeJwtPayload(String jwt) {
     if (jwt == null) {
       return new JsonObject();
     }
-    String[] parts = jwt.split("\\.");
-    if (parts.length < 2) {
-      return new JsonObject();
-    }
     try {
-      String payload = new String(Base64.getUrlDecoder().decode(parts[1]));
+      JWT parsedJWT = JWTParser.parse(jwt);
+      String payload = parsedJWT.getJWTClaimsSet().toString();
       return new JsonObject(payload);
     } catch (Exception e) {
       log.error("Failed to decode JWT payload", e);
