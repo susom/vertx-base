@@ -22,6 +22,7 @@ import io.vertx.core.json.JsonObject;
 
 import io.vertx.ext.auth.AuthProvider;
 import io.vertx.ext.auth.User;
+import io.vertx.ext.auth.authorization.Authorization;
 import io.vertx.ext.web.RoutingContext;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -76,6 +77,12 @@ public class AuthenticatedUser implements User {
   }
 
   @Override
+  public User isAuthorized(Authorization authorization, Handler<AsyncResult<Boolean>> resultHandler) {
+    resultHandler.handle(Future.succeededFuture(false));
+    return this;
+  }
+
+  @Override
   public JsonObject principal() {
     return new JsonObject()
         .put("sub", authenticatedAs)
@@ -87,6 +94,16 @@ public class AuthenticatedUser implements User {
   @Override
   public void setAuthProvider(AuthProvider authProvider) {
     // Nothing to do yet
+  }
+
+  @Override
+  public User merge(User other) {
+    return this;
+  }
+
+  @Override
+  public JsonObject attributes() {
+    return new JsonObject();
   }
 
   public String getAuthenticatedAs() {

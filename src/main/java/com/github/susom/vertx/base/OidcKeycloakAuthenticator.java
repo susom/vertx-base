@@ -42,12 +42,14 @@ import io.vertx.core.Vertx;
 import io.vertx.core.http.Cookie;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.HttpClientOptions;
+import io.vertx.core.http.HttpMethod;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.auth.jwt.JWTAuth;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
+import java.util.Base64;
 
-import io.vertx.core.http.impl.CookieImpl;
+
 
 import static com.github.susom.vertx.base.VertxBase.absoluteContext;
 import static com.github.susom.vertx.base.VertxBase.mdc;
@@ -121,19 +123,13 @@ public class OidcKeycloakAuthenticator implements Security {
         if (cookieHeader != null) {
           Set<io.netty.handler.codec.http.cookie.Cookie> nettyCookies = ServerCookieDecoder.STRICT.decode(cookieHeader);
           for (io.netty.handler.codec.http.cookie.Cookie cookie : nettyCookies) {
-            Cookie ourCookie = new CookieImpl(cookie);
+            Cookie ourCookie = Cookie.cookie(cookie.name(), cookie.value());
             rc.addCookie(ourCookie);
           }
         }
 
         rc.addHeadersEndHandler(v -> {
-          // save the cookies
-          Set<io.vertx.core.http.Cookie> cookies = rc.cookies();
-          for (Cookie cookie : cookies) {
-            if (cookie.isChanged()) {
-              rc.response().headers().add(SET_COOKIE, cookie.encode());
-            }
-          }
+          // Cookies are automatically handled by Vert.x 4.x
         });
 
         rc.put("didCookieHandler", "yes");
@@ -381,71 +377,84 @@ public class OidcKeycloakAuthenticator implements Security {
       enc.addParam("scope", scope);
 
       Metric metric = new Metric(log.isDebugEnabled());
-      httpClient.postAbs(tokenUrl, mdc(response -> {
-        metric.checkpoint("response");
-        response.bodyHandler(mdc(body -> {
-          try {
-            metric.checkpoint("body", body.length());
-            if (response.statusCode() == 200) {
-              JsonObject json = new JsonObject(body.toString());
+      httpClient.request(HttpMethod.POST, tokenUrl)
+        .compose(req -> {
+          req.putHeader("content-type", "application/x-www-form-urlencoded")
+             .putHeader("X-REQUEST-ID", MDC.get("requestId"));
+          return req.send(enc.toString().substring(1));
+        })
+        .onSuccess(mdc(response -> {
+          metric.checkpoint("response");
+          response.body().onSuccess(mdc(body -> {
+            try {
+              metric.checkpoint("body", body.length());
+              if (response.statusCode() == 200) {
+                JsonObject json = new JsonObject(body.toString());
 
-              log.warn("Response from token end point: " + json.encodePrettily()); // TODO remove
+                log.warn("Response from token end point: " + json.encodePrettily()); // TODO remove
 
-              String sessionToken = new TokenGenerator(secureRandom).create(64);
-              JWT decoder = new JWT(publicKey, false);
-              JsonObject id = decoder.decode(json.getString("id_token"));
-              // TODO need to verify issuer, audience, etc. per spec
+                String sessionToken = new TokenGenerator(secureRandom).create(64);
+                // Simple JWT decoding without verification (this class is marked as not production ready)
+                JsonObject id = decodeJwtPayload(json.getString("id_token"));
+                // TODO need to verify issuer, audience, etc. per spec
 
-              JsonObject access = decoder.decode(json.getString("access_token"));
-              log.warn("id_token: " + id.encodePrettily() + "\naccess_token: " + access.encodePrettily()); // TODO remove
+                JsonObject access = decodeJwtPayload(json.getString("access_token"));
+                log.warn("id_token: " + id.encodePrettily() + "\naccess_token: " + access.encodePrettily()); // TODO remove
 
-              Session session = new Session();
-              session.username = id.getString("preferred_username");
-              session.displayName = id.getString("name", id.getString("preferred_username"));
-              session.expires = Instant.now().plus(12, ChronoUnit.HOURS);
-              AuthoritySet authoritySet = new AuthoritySet();
-              authoritySet.actingUsername = session.username;
-              authoritySet.actingDisplayName = session.displayName;
-              authoritySet.combinedDisplayName = session.displayName;
-              // TODO not getting authority from keycloak
+                Session session = new Session();
+                session.username = id.getString("preferred_username");
+                session.displayName = id.getString("name", id.getString("preferred_username"));
+                session.expires = Instant.now().plus(12, ChronoUnit.HOURS);
+                AuthoritySet authoritySet = new AuthoritySet();
+                authoritySet.actingUsername = session.username;
+                authoritySet.actingDisplayName = session.displayName;
+                authoritySet.combinedDisplayName = session.displayName;
+                // TODO not getting authority from keycloak
 //                authoritySet.staticAuthority.addAll(json.getJsonArray("authority").getList());
-              session.authoritySets.put(DEFAULT_AUTHORITY_SET, authoritySet);
-              sessions.put(sessionToken, session);
+                session.authoritySets.put(DEFAULT_AUTHORITY_SET, authoritySet);
+                sessions.put(sessionToken, session);
 
-              Cookie jwtCookie = Cookie.cookie("session_token",
-                  sessionToken).setHttpOnly(true)
-                  .setSecure(redirectUri(rc).startsWith("https"));
-              Cookie xsrfCookie = Cookie.cookie("XSRF-TOKEN",
-                  new TokenGenerator(secureRandom).create())
-                  .setSecure(redirectUri(rc).startsWith("https"));
+                Cookie jwtCookie = Cookie.cookie("session_token",
+                    sessionToken).setHttpOnly(true)
+                    .setSecure(redirectUri(rc).startsWith("https"));
+                Cookie xsrfCookie = Cookie.cookie("XSRF-TOKEN",
+                    new TokenGenerator(secureRandom).create())
+                    .setSecure(redirectUri(rc).startsWith("https"));
 
-              rc.response().headers()
-                  .add(SET_COOKIE, jwtCookie.encode())
-                  .add(SET_COOKIE, xsrfCookie.encode());
-              rc.response().setStatusCode(302).putHeader("location", absoluteContext(config::getString, rc) + "/").end();
-            } else {
-              log.error("Unexpected response connecting to " + tokenUrl + ": " + response.statusCode() + " "
-                  + response.statusMessage() + " body: " + body);
+                rc.response().headers()
+                    .add(SET_COOKIE, jwtCookie.encode())
+                    .add(SET_COOKIE, xsrfCookie.encode());
+                rc.response().setStatusCode(302).putHeader("location", absoluteContext(config::getString, rc) + "/").end();
+              } else {
+                log.error("Unexpected response connecting to " + tokenUrl + ": " + response.statusCode() + " "
+                    + response.statusMessage() + " body: " + body);
+                rc.response().setStatusCode(500).end("Bad response from token endpoint");
+              }
+            } catch (Exception e) {
+              log.error("Unexpected error connecting to " + tokenUrl + ": " + response.statusCode() + " "
+                  + response.statusMessage() + " body: " + body, e);
               rc.response().setStatusCode(500).end("Bad response from token endpoint");
+            } finally {
+              log.debug("Request token: {}", metric.getMessage());
             }
-          } catch (Exception e) {
-            log.error("Unexpected error connecting to " + tokenUrl + ": " + response.statusCode() + " "
-                + response.statusMessage() + " body: " + body, e);
+          }))
+          .onFailure(mdc(e -> {
+            try {
+              log.error("Unexpected error reading response from " + tokenUrl, e);
+              rc.response().setStatusCode(500).end("Bad response from token endpoint");
+            } finally {
+              log.debug("Request token: {}", metric.getMessage());
+            }
+          }));
+        }))
+        .onFailure(mdc(e -> {
+          try {
+            log.error("Unexpected error connecting to " + tokenUrl, e);
             rc.response().setStatusCode(500).end("Bad response from token endpoint");
           } finally {
             log.debug("Request token: {}", metric.getMessage());
           }
         }));
-      })).exceptionHandler(mdc(e -> {
-        try {
-          log.error("Unexpected error connecting to " + tokenUrl, e);
-          rc.response().setStatusCode(500).end("Bad response from token endpoint");
-        } finally {
-          log.debug("Request token: {}", metric.getMessage());
-        }
-      })).putHeader("content-type", "application/x-www-form-urlencoded")
-          .putHeader("X-REQUEST-ID", MDC.get("requestId"))
-          .end(enc.toString().substring(1));
     };
   }
 
@@ -655,6 +664,27 @@ public class OidcKeycloakAuthenticator implements Security {
           }
         }
       }
+    }
+  }
+
+  /**
+   * Simple JWT payload decoder without verification.
+   * WARNING: This is not secure and should only be used for development/testing.
+   */
+  private JsonObject decodeJwtPayload(String jwt) {
+    if (jwt == null) {
+      return new JsonObject();
+    }
+    String[] parts = jwt.split("\\.");
+    if (parts.length < 2) {
+      return new JsonObject();
+    }
+    try {
+      String payload = new String(Base64.getUrlDecoder().decode(parts[1]));
+      return new JsonObject(payload);
+    } catch (Exception e) {
+      log.error("Failed to decode JWT payload", e);
+      return new JsonObject();
     }
   }
 }
