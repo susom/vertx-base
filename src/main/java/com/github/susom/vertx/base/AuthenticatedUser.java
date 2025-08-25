@@ -24,6 +24,7 @@ import io.vertx.ext.auth.AuthProvider;
 import io.vertx.ext.auth.User;
 import io.vertx.ext.auth.authorization.Authorization;
 import io.vertx.ext.web.RoutingContext;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -78,7 +79,11 @@ public class AuthenticatedUser implements User {
 
   @Override
   public User isAuthorized(Authorization authorization, Handler<AsyncResult<Boolean>> resultHandler) {
-    resultHandler.handle(Future.succeededFuture(false));
+    // Check if this user has the specific authorization
+    // For now, we'll use a simple string representation check
+    String authString = authorization.toString();
+    boolean hasAuth = this.authority.contains(authString);
+    resultHandler.handle(Future.succeededFuture(hasAuth));
     return this;
   }
 
@@ -98,7 +103,21 @@ public class AuthenticatedUser implements User {
 
   @Override
   public User merge(User other) {
-    return this;
+    if (other == null) {
+      return this;
+    }
+    
+    // Create a new set that includes authorities from both users
+    Set<String> mergedAuthorities = new HashSet<>(this.authority);
+    
+    // If the other user is also an AuthenticatedUser, merge its authorities
+    if (other instanceof AuthenticatedUser) {
+      AuthenticatedUser otherAuth = (AuthenticatedUser) other;
+      mergedAuthorities.addAll(otherAuth.authority);
+    }
+    
+    // Return a new AuthenticatedUser with merged authorities
+    return new AuthenticatedUser(this.authenticatedAs, this.actingAs, this.fullDisplayName, mergedAuthorities);
   }
 
   @Override
