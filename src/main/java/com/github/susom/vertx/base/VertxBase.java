@@ -181,7 +181,8 @@ public class VertxBase {
    * statement to the log to make sure it is configured.
    */
   public static void initializeLogging() {
-    // Vertx logs to JUL unless we tell it otherwise
+    // In Vert.x 4.x, SLF4J is the default logging framework, no configuration needed
+    // We keep the property for compatibility, but it's not strictly necessary
     System.setProperty("vertx.logger-delegate-factory-class-name", "io.vertx.core.logging.SLF4JLogDelegateFactory");
 
     // Useful, but also serves to dump any logging related errors before

@@ -35,17 +35,19 @@ import com.github.susom.database.Config;
 import com.github.susom.database.Metric;
 
 import io.netty.handler.codec.http.QueryStringEncoder;
-import io.netty.handler.codec.http.cookie.Cookie;
+
 import io.netty.handler.codec.http.cookie.ServerCookieDecoder;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
+import io.vertx.core.http.Cookie;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.HttpClientOptions;
+import io.vertx.core.http.HttpMethod;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
-import io.vertx.ext.web.handler.CookieHandler;
-import io.vertx.ext.web.impl.CookieImpl;
+
+
 
 import static com.github.susom.vertx.base.VertxBase.*;
 import static io.vertx.core.http.HttpHeaders.COOKIE;
@@ -63,7 +65,7 @@ public class FakeAuthenticator implements Security {
   private static final Pattern VALID_AUTH_CODE = Pattern.compile("[\\.a-zA-Z0-9_/-]*");
   private static final String DEFAULT_AUTHORITY_SET = "self";
   private final Set<String> staticAuthorities = new HashSet<>();
-  private final CookieHandler cookieHandler;
+  private final Handler<RoutingContext> cookieHandler;
   private final Handler<RoutingContext> authenticateOptional;
   private final Handler<RoutingContext> authenticateRequiredOrDeny;
   private final Handler<RoutingContext> authenticateRequiredOrRedirectJs;
@@ -116,21 +118,15 @@ public class FakeAuthenticator implements Security {
         String cookieHeader = rc.request().headers().get(COOKIE);
 
         if (cookieHeader != null) {
-          Set<Cookie> nettyCookies = ServerCookieDecoder.STRICT.decode(cookieHeader);
-          for (Cookie cookie : nettyCookies) {
-            io.vertx.ext.web.Cookie ourCookie = new CookieImpl(cookie);
+          Set<io.netty.handler.codec.http.cookie.Cookie> nettyCookies = ServerCookieDecoder.STRICT.decode(cookieHeader);
+          for (io.netty.handler.codec.http.cookie.Cookie cookie : nettyCookies) {
+            Cookie ourCookie = Cookie.cookie(cookie.name(), cookie.value());
             rc.addCookie(ourCookie);
           }
         }
 
         rc.addHeadersEndHandler(v -> {
-          // save the cookies
-          Set<io.vertx.ext.web.Cookie> cookies = rc.cookies();
-          for (io.vertx.ext.web.Cookie cookie : cookies) {
-            if (cookie.isChanged()) {
-              rc.response().headers().add(SET_COOKIE, cookie.encode());
-            }
-          }
+          // Cookies are automatically handled by Vert.x 4.x
         });
 
         rc.put("didCookieHandler", "yes");
@@ -159,7 +155,7 @@ public class FakeAuthenticator implements Security {
       String state = new TokenGenerator(secureRandom).create(15);
       params.addParam("state", state);
 
-      rc.response().headers().add(SET_COOKIE, io.vertx.ext.web.Cookie.cookie("state", state)
+      rc.response().headers().add(SET_COOKIE, Cookie.cookie("state", state)
           .setHttpOnly(true)
           .setPath(rc.mountPoint() + "/")
           .setSecure(redirectUri(rc).startsWith("https")).encode());
@@ -188,7 +184,7 @@ public class FakeAuthenticator implements Security {
 //      String state = new TokenGenerator(secureRandom).create(15);
 //      params.addParam("state", state);
 //
-//      rc.response().headers().add(SET_COOKIE, io.vertx.ext.web.Cookie.cookie("state", state)
+//      rc.response().headers().add(SET_COOKIE, Cookie.cookie("state", state)
 //          .setHttpOnly(true)
 //          .setPath(rc.mountPoint() + "/")
 //          .setSecure(redirectUri(rc).startsWith("https")).encode());
@@ -215,7 +211,7 @@ public class FakeAuthenticator implements Security {
       String state = new TokenGenerator(secureRandom).create(15);
       params.addParam("state", state);
 
-      rc.response().headers().add(SET_COOKIE, io.vertx.ext.web.Cookie.cookie("state", state)
+      rc.response().headers().add(SET_COOKIE, Cookie.cookie("state", state)
           .setHttpOnly(true)
           .setPath(rc.mountPoint() + "/")
           .setSecure(redirectUri(rc).startsWith("https")).encode());
@@ -328,7 +324,7 @@ public class FakeAuthenticator implements Security {
   public Handler<RoutingContext> callbackHandler() {
     return rc -> {
       // XSRF prevention: Verify the state value provided to login call
-      io.vertx.ext.web.Cookie state = rc.getCookie("state");
+      Cookie state = rc.getCookie("state");
       if (state != null) {
         String stateParam = rc.request().getParam("state");
         if (stateParam == null || stateParam.length() == 0) {
@@ -357,63 +353,76 @@ public class FakeAuthenticator implements Security {
       enc.addParam("scope", scope);
 
       Metric metric = new Metric(log.isDebugEnabled());
-      httpClient.postAbs(tokenUrl, mdc(response -> {
-        metric.checkpoint("response");
-        response.bodyHandler(mdc(body -> {
-          try {
-            metric.checkpoint("body", body.length());
-            if (response.statusCode() == 200) {
-              JsonObject json = new JsonObject(body.toString());
+      httpClient.request(HttpMethod.POST, tokenUrl)
+        .compose(req -> {
+          req.putHeader("content-type", "application/x-www-form-urlencoded")
+             .putHeader("X-REQUEST-ID", MDC.get("requestId"));
+          return req.send(enc.toString().substring(1));
+        })
+        .onSuccess(mdc(response -> {
+          metric.checkpoint("response");
+          response.body().onSuccess(mdc(body -> {
+            try {
+              metric.checkpoint("body", body.length());
+              if (response.statusCode() == 200) {
+                JsonObject json = new JsonObject(body.toString());
 
-              log.warn("Response from token end point: " + json.encodePrettily()); // TODO remove
+                log.warn("Response from token end point: " + json.encodePrettily()); // TODO remove
 
-              String sessionToken = new TokenGenerator(secureRandom).create(64);
-              Session session = new Session();
-              session.username = json.getString("sub");
-              session.displayName = json.getString("name", json.getString("sub"));
-              session.expires = Instant.now().plus(12, ChronoUnit.HOURS);
-              AuthoritySet authoritySet = new AuthoritySet();
-              authoritySet.actingUsername = session.username;
-              authoritySet.actingDisplayName = session.displayName;
-              authoritySet.combinedDisplayName = session.displayName;
-              authoritySet.staticAuthority.addAll(json.getJsonArray("authority").getList());
-              session.authoritySets.put(DEFAULT_AUTHORITY_SET, authoritySet);
-              sessions.put(sessionToken, session);
+                String sessionToken = new TokenGenerator(secureRandom).create(64);
+                Session session = new Session();
+                session.username = json.getString("sub");
+                session.displayName = json.getString("name", json.getString("sub"));
+                session.expires = Instant.now().plus(12, ChronoUnit.HOURS);
+                AuthoritySet authoritySet = new AuthoritySet();
+                authoritySet.actingUsername = session.username;
+                authoritySet.actingDisplayName = session.displayName;
+                authoritySet.combinedDisplayName = session.displayName;
+                authoritySet.staticAuthority.addAll(json.getJsonArray("authority").getList());
+                session.authoritySets.put(DEFAULT_AUTHORITY_SET, authoritySet);
+                sessions.put(sessionToken, session);
 
-              io.vertx.ext.web.Cookie sessionCookie = io.vertx.ext.web.Cookie.cookie("session_token",
-                  sessionToken).setHttpOnly(true)
-                  .setSecure(redirectUri(rc).startsWith("https"));
-              io.vertx.ext.web.Cookie xsrfCookie = io.vertx.ext.web.Cookie.cookie("XSRF-TOKEN",
-                  new TokenGenerator(secureRandom).create())
-                  .setSecure(redirectUri(rc).startsWith("https"));
+                Cookie sessionCookie = Cookie.cookie("session_token",
+                    sessionToken).setHttpOnly(true)
+                    .setSecure(redirectUri(rc).startsWith("https"));
+                Cookie xsrfCookie = Cookie.cookie("XSRF-TOKEN",
+                    new TokenGenerator(secureRandom).create())
+                    .setSecure(redirectUri(rc).startsWith("https"));
 
-              rc.response().headers()
-                  .add(SET_COOKIE, sessionCookie.encode())
-                  .add(SET_COOKIE, xsrfCookie.encode());
-              rc.response().setStatusCode(302).putHeader("location", absoluteContext(config::getString, rc) + "/").end();
-            } else {
-              log.error("Unexpected response connecting to " + tokenUrl + ": " + response.statusCode() + " "
-                  + response.statusMessage() + " body: " + body);
+                rc.response().headers()
+                    .add(SET_COOKIE, sessionCookie.encode())
+                    .add(SET_COOKIE, xsrfCookie.encode());
+                rc.response().setStatusCode(302).putHeader("location", absoluteContext(config::getString, rc) + "/").end();
+              } else {
+                log.error("Unexpected response connecting to " + tokenUrl + ": " + response.statusCode() + " "
+                    + response.statusMessage() + " body: " + body);
+                rc.response().setStatusCode(500).end("Bad response from token endpoint");
+              }
+            } catch (Exception e) {
+              log.error("Unexpected error connecting to " + tokenUrl + ": " + response.statusCode() + " "
+                  + response.statusMessage() + " body: " + body, e);
               rc.response().setStatusCode(500).end("Bad response from token endpoint");
+            } finally {
+              log.debug("Request token: {}", metric.getMessage());
             }
-          } catch (Exception e) {
-            log.error("Unexpected error connecting to " + tokenUrl + ": " + response.statusCode() + " "
-                + response.statusMessage() + " body: " + body, e);
+          }))
+          .onFailure(mdc(e -> {
+            try {
+              log.error("Unexpected error reading response from " + tokenUrl, e);
+              rc.response().setStatusCode(500).end("Bad response from token endpoint");
+            } finally {
+              log.debug("Request token: {}", metric.getMessage());
+            }
+          }));
+        }))
+        .onFailure(mdc(e -> {
+          try {
+            log.error("Unexpected error connecting to " + tokenUrl, e);
             rc.response().setStatusCode(500).end("Bad response from token endpoint");
           } finally {
             log.debug("Request token: {}", metric.getMessage());
           }
         }));
-      })).exceptionHandler(mdc(e -> {
-        try {
-          log.error("Unexpected error connecting to " + tokenUrl, e);
-          rc.response().setStatusCode(500).end("Bad response from token endpoint");
-        } finally {
-          log.debug("Request token: {}", metric.getMessage());
-        }
-      })).putHeader("content-type", "application/x-www-form-urlencoded")
-          .putHeader("X-REQUEST-ID", MDC.get("requestId"))
-          .end(enc.toString().substring(1));
     };
   }
 
@@ -437,7 +446,7 @@ public class FakeAuthenticator implements Security {
         String state = new TokenGenerator(secureRandom).create(15);
         params.addParam("state", state);
 
-        rc.response().headers().add(SET_COOKIE, io.vertx.ext.web.Cookie.cookie("state", state)
+        rc.response().headers().add(SET_COOKIE, Cookie.cookie("state", state)
             .setHttpOnly(true)
             .setSecure(redirectUri(rc).startsWith("https")).encode());
 
@@ -461,8 +470,8 @@ public class FakeAuthenticator implements Security {
       fromEnc.addParam("redirect_uri", VertxBase.absolutePath(config::getString, rc) + "?done=yes");
 
       rc.response().headers()
-          .add(SET_COOKIE, io.vertx.ext.web.Cookie.cookie("session_token", "").setMaxAge(0).encode())
-          .add(SET_COOKIE, io.vertx.ext.web.Cookie.cookie("XSRF-TOKEN", "").setMaxAge(0).encode())
+          .add(SET_COOKIE, Cookie.cookie("session_token", "").setMaxAge(0).encode())
+          .add(SET_COOKIE, Cookie.cookie("XSRF-TOKEN", "").setMaxAge(0).encode())
           .add("location", logoutUrl + fromEnc);
       rc.response().setStatusCode(302).end();
     };
@@ -557,7 +566,7 @@ public class FakeAuthenticator implements Security {
         }
 
         if (mandatory && checkXsrf) {
-          io.vertx.ext.web.Cookie xsrf = rc.getCookie("XSRF-TOKEN");
+          Cookie xsrf = rc.getCookie("XSRF-TOKEN");
           if (xsrf != null) {
             String xsrfHeader = rc.request().getHeader("X-XSRF-TOKEN");
             if (xsrfHeader == null || xsrfHeader.length() == 0) {
@@ -580,7 +589,7 @@ public class FakeAuthenticator implements Security {
           }
         }
 
-        io.vertx.ext.web.Cookie sessionCookie = rc.getCookie("session_token");
+        Cookie sessionCookie = rc.getCookie("session_token");
         if (sessionCookie != null && sessionCookie.getValue() != null) {
           Session session = sessions.get(sessionCookie.getValue());
           // TODO handle case where session is not in our cache and we need to get it from the coordinator

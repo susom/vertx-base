@@ -22,6 +22,7 @@ import io.vertx.core.Vertx;
 import io.vertx.core.http.Cookie;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.HttpClientOptions;
+import io.vertx.core.http.HttpMethod;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.auth.JWTOptions;
@@ -387,13 +388,16 @@ public class EmailLoginAuthenticator implements Security {
             enc.addParam("html", html.replace("[LINK]", link));
           }
           String encodedBody = enc.toString().substring(1);
-          httpClient.post(443, mailgunHost, "/v3/" + mailgunDomain + "/messages")
-              .putHeader("Authorization", "Basic " + Base64.getEncoder().encodeToString(("api:" + mailgunApiKey).getBytes(UTF_8)))
-              .putHeader("content-type", "application/x-www-form-urlencoded")
-              .handler(response -> {
+          httpClient.request(HttpMethod.POST, 443, mailgunHost, "/v3/" + mailgunDomain + "/messages")
+              .compose(req -> {
+                req.putHeader("Authorization", "Basic " + Base64.getEncoder().encodeToString(("api:" + mailgunApiKey).getBytes(UTF_8)))
+                   .putHeader("content-type", "application/x-www-form-urlencoded");
+                return req.send(encodedBody);
+              })
+              .onSuccess(response -> {
                 try {
                   metric.checkpoint("response", response.statusCode());
-                  response.bodyHandler(body -> {
+                  response.body().onSuccess(body -> {
                     int responseCode = response.statusCode();
                     if (responseCode == 200) {
                       log.debug("Mail sent {} to {} response {}", metric.getMessage(), email, body.toString().trim());
@@ -404,6 +408,11 @@ public class EmailLoginAuthenticator implements Security {
                           .putHeader("content-type", "application/json")
                           .end(new JsonObject().put("message", "Unable to send email right now.").encode());
                     }
+                  }).onFailure(exception -> {
+                    log.error("Error reading email response body: " + metric.getMessage(), exception);
+                    rc.response().setStatusCode(401)
+                        .putHeader("content-type", "application/json")
+                        .end(new JsonObject().put("message", "Unable to send email right now.").encode());
                   });
                 } catch (Exception e) {
                   log.error("Exception sending email: " + metric.getMessage(), e);
@@ -411,13 +420,12 @@ public class EmailLoginAuthenticator implements Security {
                       .putHeader("content-type", "application/json")
                       .end(new JsonObject().put("message", "Unable to send email right now.").encode());
                 }
-              }).exceptionHandler(exception -> {
+              }).onFailure(exception -> {
                 log.error("Error sending email", exception);
                 rc.response().setStatusCode(401)
                     .putHeader("content-type", "application/json")
                     .end(new JsonObject().put("message", "Unable to send email right now.").encode());
-              })
-              .end(encodedBody);
+              });
         })
         .onFailure(throwable -> {
           log.error("Error creating email token for the user", throwable);

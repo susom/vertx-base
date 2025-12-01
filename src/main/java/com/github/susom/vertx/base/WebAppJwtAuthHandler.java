@@ -18,7 +18,7 @@ import com.github.susom.database.Metric;
 import io.vertx.core.Handler;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.auth.jwt.JWTAuth;
-import io.vertx.ext.web.Cookie;
+import io.vertx.core.http.Cookie;
 import io.vertx.ext.web.RoutingContext;
 import java.util.HashSet;
 import org.slf4j.Logger;
