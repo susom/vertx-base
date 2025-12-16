@@ -19,10 +19,12 @@ import io.vertx.core.AsyncResult;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.json.JsonObject;
-import io.vertx.ext.auth.AbstractUser;
+
 import io.vertx.ext.auth.AuthProvider;
 import io.vertx.ext.auth.User;
+import io.vertx.ext.auth.authorization.Authorization;
 import io.vertx.ext.web.RoutingContext;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -31,7 +33,7 @@ import java.util.stream.Collectors;
  *
  * @author garricko
  */
-public class AuthenticatedUser extends AbstractUser {
+public class AuthenticatedUser implements User {
   // TODO need to figure out issuer/domain/pk representation
   private final String authenticatedAs;
   private final String actingAs;
@@ -67,12 +69,22 @@ public class AuthenticatedUser extends AbstractUser {
   }
 
   @Override
-  protected void doIsPermitted(String permission, Handler<AsyncResult<Boolean>> resultHandler) {
-    if (authority.contains(permission)) {
-      resultHandler.handle(Future.succeededFuture(true));
+  public Future<Boolean> isAuthorized(String authority) {
+    if (this.authority.contains(authority)) {
+      return Future.succeededFuture(true);
     } else {
-      resultHandler.handle(Future.succeededFuture(false));
+      return Future.succeededFuture(false);
     }
+  }
+
+  @Override
+  public User isAuthorized(Authorization authorization, Handler<AsyncResult<Boolean>> resultHandler) {
+    // Check if this user has the specific authorization
+    // For now, we'll use a simple string representation check
+    String authString = authorization.toString();
+    boolean hasAuth = this.authority.contains(authString);
+    resultHandler.handle(Future.succeededFuture(hasAuth));
+    return this;
   }
 
   @Override
@@ -87,6 +99,30 @@ public class AuthenticatedUser extends AbstractUser {
   @Override
   public void setAuthProvider(AuthProvider authProvider) {
     // Nothing to do yet
+  }
+
+  @Override
+  public User merge(User other) {
+    if (other == null) {
+      return this;
+    }
+    
+    // Create a new set that includes authorities from both users
+    Set<String> mergedAuthorities = new HashSet<>(this.authority);
+    
+    // If the other user is also an AuthenticatedUser, merge its authorities
+    if (other instanceof AuthenticatedUser) {
+      AuthenticatedUser otherAuth = (AuthenticatedUser) other;
+      mergedAuthorities.addAll(otherAuth.authority);
+    }
+    
+    // Return a new AuthenticatedUser with merged authorities
+    return new AuthenticatedUser(this.authenticatedAs, this.actingAs, this.fullDisplayName, mergedAuthorities);
+  }
+
+  @Override
+  public JsonObject attributes() {
+    return new JsonObject();
   }
 
   public String getAuthenticatedAs() {

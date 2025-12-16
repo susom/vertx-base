@@ -22,6 +22,7 @@ import io.vertx.core.Vertx;
 import io.vertx.core.http.Cookie;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.HttpClientOptions;
+import io.vertx.core.http.HttpMethod;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.auth.JWTOptions;
@@ -50,6 +51,21 @@ import static io.vertx.core.http.HttpHeaders.SET_COOKIE;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class EmailLoginAuthenticator implements Security {
+  public final static String FOOTER_TEXT = "email.message.footer.text";
+  public final static String FOOTER_HTML = "email.message.footer.html";
+
+  public final static String HEADER_TEXT = "email.message.header.text";
+  public final static String HEADER_HTML = "email.message.header.html";
+
+  public final static String MAILGUN_API_KEY = "mailgun.api.key";
+  public final static String MAILGUN_DOMAIN = "mailgun.domain";
+  public final static String MAILGUN_FROM = "mailgun.from";
+  public final static String MAILGUN_HOST = "mailgun.host";
+  public final static String MAILGUN_HTML = "mailgun.html";
+  public final static String MAILGUN_REPLY_TO = "mailgun.reply.to";
+  public final static String MAILGUN_SUBJECT = "mailgun.subject";
+  public final static String MAILGUN_TEXT = "mailgun.text";
+
   private static final Logger log = LoggerFactory.getLogger(EmailLoginAuthenticator.class);
   private final Vertx vertx;
   private final Router root;
@@ -63,6 +79,7 @@ public class EmailLoginAuthenticator implements Security {
   private final String mailgunDomain;
   private final String mailgunApiKey;
   private final String mailgunFrom;
+  private final String mailgunReplyTo;
 
   public EmailLoginAuthenticator(Vertx vertx, Router root, SecureRandom random, EmailLoginValidator validator, Function<String, String> cfg) throws IOException {
     this.vertx = vertx;
@@ -71,13 +88,13 @@ public class EmailLoginAuthenticator implements Security {
     this.validator = validator;
     this.config = Config.from().custom(cfg).get();
 
-    String footerText = config.getString("email.message.footer.text");
+    String footerText = config.getString(FOOTER_TEXT);
     footerText = footerText == null ? "" : footerText;
-    String footerHtml = config.getString("email.message.footer.html");
+    String footerHtml = config.getString(FOOTER_HTML);
     footerHtml = footerHtml == null ? "" : footerHtml;
-    String headerText = config.getString("email.message.header.text");
+    String headerText = config.getString(HEADER_TEXT);
     headerText = headerText == null ? "" : headerText;
-    String headerHtml = config.getString("email.message.header.html");
+    String headerHtml = config.getString(HEADER_HTML);
     headerHtml = headerHtml == null ? "" : headerHtml;
     if (headerText.isEmpty() && headerHtml.isEmpty()) {
       headerText = "Enter your email address to access this site.";
@@ -110,10 +127,11 @@ public class EmailLoginAuthenticator implements Security {
 
     httpClient = vertx.createHttpClient(new HttpClientOptions().setSsl(true));
 
-    mailgunHost = config.getString("mailgun.host", "api.mailgun.net");
-    mailgunDomain = config.getString("mailgun.domain");
-    mailgunApiKey = config.getString("mailgun.api.key");
-    mailgunFrom = config.getString("mailgun.from");
+    mailgunHost = config.getString(MAILGUN_HOST, "api.mailgun.net");
+    mailgunDomain = config.getString(MAILGUN_DOMAIN);
+    mailgunApiKey = config.getString(MAILGUN_API_KEY);
+    mailgunFrom = config.getString(MAILGUN_FROM);
+    mailgunReplyTo = config.getString(MAILGUN_REPLY_TO);  // optional config setting to set a reply-to address
 
     if (mailgunDomain == null || mailgunApiKey == null || mailgunFrom == null) {
       log.warn("Config mailgun.domain, mailgun.api.key, or mailgun.from is not set so we will log emails instead of sending");
@@ -353,9 +371,13 @@ public class EmailLoginAuthenticator implements Security {
           QueryStringEncoder enc = new QueryStringEncoder("");
           enc.addParam("from", mailgunFrom);
           enc.addParam("to", email);
-          enc.addParam("subject", config.getString("mailgun.subject", "The login link you requested"));
-          String text = config.getString("mailgun.text");
-          String html = config.getString("mailgun.html");
+          // If we have a mailgun reply-to address (optional), add it to the email header
+          if (mailgunReplyTo != null) {
+            enc.addParam("h:Reply-To", mailgunReplyTo);
+          }
+          enc.addParam("subject", config.getString(MAILGUN_SUBJECT, "The login link you requested"));
+          String text = config.getString(MAILGUN_TEXT);
+          String html = config.getString(MAILGUN_HTML);
           if (text == null && html == null) {
             text = "Here is the login link you requested:\n\n[LINK]\n\nDo not forward or share with anyone.";
           }
@@ -366,13 +388,16 @@ public class EmailLoginAuthenticator implements Security {
             enc.addParam("html", html.replace("[LINK]", link));
           }
           String encodedBody = enc.toString().substring(1);
-          httpClient.post(443, mailgunHost, "/v3/" + mailgunDomain + "/messages")
-              .putHeader("Authorization", "Basic " + Base64.getEncoder().encodeToString(("api:" + mailgunApiKey).getBytes(UTF_8)))
-              .putHeader("content-type", "application/x-www-form-urlencoded")
-              .handler(response -> {
+          httpClient.request(HttpMethod.POST, 443, mailgunHost, "/v3/" + mailgunDomain + "/messages")
+              .compose(req -> {
+                req.putHeader("Authorization", "Basic " + Base64.getEncoder().encodeToString(("api:" + mailgunApiKey).getBytes(UTF_8)))
+                   .putHeader("content-type", "application/x-www-form-urlencoded");
+                return req.send(encodedBody);
+              })
+              .onSuccess(response -> {
                 try {
                   metric.checkpoint("response", response.statusCode());
-                  response.bodyHandler(body -> {
+                  response.body().onSuccess(body -> {
                     int responseCode = response.statusCode();
                     if (responseCode == 200) {
                       log.debug("Mail sent {} to {} response {}", metric.getMessage(), email, body.toString().trim());
@@ -383,6 +408,11 @@ public class EmailLoginAuthenticator implements Security {
                           .putHeader("content-type", "application/json")
                           .end(new JsonObject().put("message", "Unable to send email right now.").encode());
                     }
+                  }).onFailure(exception -> {
+                    log.error("Error reading email response body: " + metric.getMessage(), exception);
+                    rc.response().setStatusCode(401)
+                        .putHeader("content-type", "application/json")
+                        .end(new JsonObject().put("message", "Unable to send email right now.").encode());
                   });
                 } catch (Exception e) {
                   log.error("Exception sending email: " + metric.getMessage(), e);
@@ -390,13 +420,12 @@ public class EmailLoginAuthenticator implements Security {
                       .putHeader("content-type", "application/json")
                       .end(new JsonObject().put("message", "Unable to send email right now.").encode());
                 }
-              }).exceptionHandler(exception -> {
+              }).onFailure(exception -> {
                 log.error("Error sending email", exception);
                 rc.response().setStatusCode(401)
                     .putHeader("content-type", "application/json")
                     .end(new JsonObject().put("message", "Unable to send email right now.").encode());
-              })
-              .end(encodedBody);
+              });
         })
         .onFailure(throwable -> {
           log.error("Error creating email token for the user", throwable);

@@ -35,6 +35,10 @@ import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static com.github.susom.vertx.base.EmailLoginAuthenticator.MAILGUN_HTML;
+import static com.github.susom.vertx.base.EmailLoginAuthenticator.MAILGUN_SUBJECT;
+import static com.github.susom.vertx.base.EmailLoginAuthenticator.MAILGUN_TEXT;
+
 import static com.github.susom.vertx.base.VertxBase.*;
 
 /**
@@ -66,9 +70,9 @@ public class EmailLoginSample {
 //          .value("email.message.footer.text", "Be sure you put in the email you signed up with.")
 //          .value("email.message.footer.html", "Be sure you <b>put in the email</b> you signed up with.")
 //          .value("email.message.instructions", "Check your email.")
-          .value("mailgun.subject", "Custom subject")
-          .value("mailgun.text", "Here is the link:\n\n[LINK]")
-          .value("mailgun.html", "<html><body><p>Here is the link:</p><p><a href='[LINK]'>Login</a></p></body></html>")
+          .value(MAILGUN_SUBJECT, "Custom subject")
+          .value(MAILGUN_TEXT, "Here is the link:\n\n[LINK]")
+          .value(MAILGUN_HTML, "<html><body><p>Here is the link:</p><p><a href='[LINK]'>Login</a></p></body></html>")
           // In local.properties set mailgun.domain, mailgun.api.key, and mailgun.from
           .propertyFile("local.properties").get();
 
