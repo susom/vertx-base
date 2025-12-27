@@ -25,6 +25,7 @@ import io.vertx.ext.auth.User;
 import io.vertx.ext.auth.authorization.Authorization;
 import io.vertx.ext.auth.authorization.Authorizations;
 import io.vertx.ext.auth.authorization.PermissionBasedAuthorization;
+import io.vertx.ext.auth.authorization.impl.AuthorizationsImpl;
 import io.vertx.ext.web.RoutingContext;
 import java.util.HashSet;
 import java.util.Set;
@@ -53,53 +54,12 @@ public class AuthenticatedUser implements User {
 
     // Convert string authorities to real PermissionBasedAuthorization objects
     // Store them in an Authorizations container with our default provider ID
-    this.authorizations = new SimpleAuthorizations();
+    this.authorizations = new AuthorizationsImpl();
     for (String auth : authority) {
       this.authorizations.add(DEFAULT_PROVIDER_ID, PermissionBasedAuthorization.create(auth));
     }
   }
 
-  /**
-   * Simple implementation of Authorizations for storing our authorization objects.
-   */
-  private static class SimpleAuthorizations implements Authorizations {
-    private final java.util.Map<String, Set<Authorization>> authMap = new java.util.HashMap<>();
-
-    @Override
-    public Authorizations add(String providerId, Set<Authorization> authorizations) {
-      authMap.computeIfAbsent(providerId, k -> new HashSet<>()).addAll(authorizations);
-      return this;
-    }
-
-    @Override
-    public Authorizations add(String providerId, Authorization authorization) {
-      authMap.computeIfAbsent(providerId, k -> new HashSet<>()).add(authorization);
-      return this;
-    }
-
-    @Override
-    public Authorizations clear(String providerId) {
-      authMap.remove(providerId);
-      return this;
-    }
-
-    @Override
-    public Authorizations clear() {
-      authMap.clear();
-      return this;
-    }
-
-    @Override
-    public Set<Authorization> get(String providerId) {
-      Set<Authorization> auths = authMap.get(providerId);
-      return auths != null ? auths : java.util.Collections.emptySet();
-    }
-
-    @Override
-    public Set<String> getProviderIds() {
-      return authMap.keySet();
-    }
-  }
 
   public static AuthenticatedUser from(RoutingContext rc) {
     User user = rc.user();
