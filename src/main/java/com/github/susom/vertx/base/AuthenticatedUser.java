@@ -77,6 +77,24 @@ public class AuthenticatedUser implements User {
     }
   }
 
+  /**
+   * Check if the user has the specified authority using a callback handler.
+   * This is the method that authenticators call in requireAuthority().
+   *
+   * @param authority the authority string to check (e.g., "service:secret")
+   * @param resultHandler the handler that will receive the authorization result
+   * @return this User instance for chaining
+   */
+  @Override
+  public User isAuthorized(String authority, Handler<AsyncResult<Boolean>> resultHandler) {
+    if (this.authority.contains(authority)) {
+      resultHandler.handle(Future.succeededFuture(true));
+    } else {
+      resultHandler.handle(Future.succeededFuture(false));
+    }
+    return this;
+  }
+
   @Override
   public User isAuthorized(Authorization authorization, Handler<AsyncResult<Boolean>> resultHandler) {
     // Check if this user has the specific authorization
