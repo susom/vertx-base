@@ -19,6 +19,7 @@ import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.HttpMethod;
+import io.vertx.ext.auth.authorization.PermissionBasedAuthorization;
 import io.vertx.ext.unit.Async;
 import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
@@ -306,6 +307,47 @@ public class FakeAuthenticationTest {
     context.assertEquals(2, principal.getJsonArray("authority").size());
 
     log.info("Principal: {}", principal.encodePrettily());
+  }
+
+  /**
+   * Test AuthenticatedUser.isAuthorized with Authorization object and callback handler.
+   * This tests the isAuthorized(Authorization, Handler) method.
+   */
+  @Test
+  public void testIsAuthorizedWithAuthorizationObject(TestContext context) {
+    Async async = context.async();
+
+    // Create a user with specific authorities
+    Set<String> authorities = new HashSet<>();
+    authorities.add("role:admin");
+    authorities.add("service:read");
+    authorities.add("service:write");
+
+    AuthenticatedUser user = new AuthenticatedUser(
+        "testuser@example.com",
+        "testuser@example.com",
+        "Test User",
+        authorities
+    );
+
+    // Create Authorization instances using PermissionBasedAuthorization
+    var adminAuth = PermissionBasedAuthorization.create("role:admin");
+    var missingAuth = PermissionBasedAuthorization.create("role:superuser");
+
+    // Test with Authorization object that user has
+    user.isAuthorized(adminAuth, r -> {
+      context.assertTrue(r.succeeded(), "Authorization check should succeed");
+      context.assertTrue(r.result(), "User should have role:admin authority");
+      log.info("User has {} authority: {}", adminAuth, r.result());
+
+      // Test with Authorization object that user doesn't have
+      user.isAuthorized(missingAuth, r2 -> {
+        context.assertTrue(r2.succeeded(), "Authorization check should succeed");
+        context.assertFalse(r2.result(), "User should NOT have role:superuser authority");
+        log.info("User has {} authority: {}", missingAuth, r2.result());
+        async.complete();
+      });
+    });
   }
 }
 
