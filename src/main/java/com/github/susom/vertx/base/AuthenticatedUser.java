@@ -60,7 +60,6 @@ public class AuthenticatedUser implements User {
     }
   }
 
-
   public static AuthenticatedUser from(RoutingContext rc) {
     User user = rc.user();
     if (user instanceof AuthenticatedUser) {
