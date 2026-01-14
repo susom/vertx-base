@@ -23,6 +23,9 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.auth.AuthProvider;
 import io.vertx.ext.auth.User;
 import io.vertx.ext.auth.authorization.Authorization;
+import io.vertx.ext.auth.authorization.Authorizations;
+import io.vertx.ext.auth.authorization.PermissionBasedAuthorization;
+import io.vertx.ext.auth.authorization.impl.AuthorizationsImpl;
 import io.vertx.ext.web.RoutingContext;
 import java.util.HashSet;
 import java.util.Set;
@@ -34,17 +37,27 @@ import java.util.stream.Collectors;
  * @author garricko
  */
 public class AuthenticatedUser implements User {
+  private static final String DEFAULT_PROVIDER_ID = "default_provider";
+
   // TODO need to figure out issuer/domain/pk representation
   private final String authenticatedAs;
   private final String actingAs;
   private final String fullDisplayName;
   private final Set<String> authority;
+  private final Authorizations authorizations;
 
   public AuthenticatedUser(String authenticatedAs, String actingAs, String fullDisplayName, Set<String> authority) {
     this.authenticatedAs = authenticatedAs;
     this.actingAs = actingAs;
     this.authority = authority;
     this.fullDisplayName = fullDisplayName == null ? actingAs : fullDisplayName;
+
+    // Convert string authorities to real PermissionBasedAuthorization objects
+    // Store them in an Authorizations container with our default provider ID
+    this.authorizations = new AuthorizationsImpl();
+    for (String auth : authority) {
+      this.authorizations.add(DEFAULT_PROVIDER_ID, PermissionBasedAuthorization.create(auth));
+    }
   }
 
   public static AuthenticatedUser from(RoutingContext rc) {
@@ -77,12 +90,29 @@ public class AuthenticatedUser implements User {
     }
   }
 
+  /**
+   * Check if the user has the specified authority using a callback handler.
+   * This is the method that authenticators call in requireAuthority().
+   *
+   * @param authority the authority string to check (e.g., "service:secret")
+   * @param resultHandler the handler that will receive the authorization result
+   * @return this User instance for chaining
+   */
+  @Override
+  public User isAuthorized(String authority, Handler<AsyncResult<Boolean>> resultHandler) {
+    if (this.authority.contains(authority)) {
+      resultHandler.handle(Future.succeededFuture(true));
+    } else {
+      resultHandler.handle(Future.succeededFuture(false));
+    }
+    return this;
+  }
+
   @Override
   public User isAuthorized(Authorization authorization, Handler<AsyncResult<Boolean>> resultHandler) {
-    // Check if this user has the specific authorization
-    // For now, we'll use a simple string representation check
-    String authString = authorization.toString();
-    boolean hasAuth = this.authority.contains(authString);
+    // Use the Authorization's match() method - this properly delegates to the Authorization
+    // implementation and uses our authorizations() to check if the user has the authorization
+    boolean hasAuth = authorization.match(this);
     resultHandler.handle(Future.succeededFuture(hasAuth));
     return this;
   }
@@ -123,6 +153,14 @@ public class AuthenticatedUser implements User {
   @Override
   public JsonObject attributes() {
     return new JsonObject();
+  }
+
+  /**
+   * Provide access to the user's authorizations for proper authorization matching.
+   * This is used by the Vert.x authorization framework.
+   */
+  public Authorizations authorizations() {
+    return authorizations;
   }
 
   public String getAuthenticatedAs() {
