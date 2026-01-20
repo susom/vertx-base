@@ -88,7 +88,7 @@ public class FakeAuthenticatorHttpClientTest {
           int port = server.actualPort();
           log.info("Token server started on port {}", port);
 
-          // Configure FakeAuthenticator to use our non-standard port
+          // Configure FakeAuthenticator to use the dynamically assigned port
           Function<String, String> config = key -> {
             switch (key) {
               case "root.url":
@@ -147,7 +147,7 @@ public class FakeAuthenticatorHttpClientTest {
 
                                 // The test passes if we get a response (even if it's an error)
                                 // without a connection refused error. The connection to the
-                                // token endpoint on the non-standard port should work.
+                                // token endpoint on the dynamically assigned port should work.
                                 if (response2.statusCode() == 500 &&
                                     body.toString().contains("Connection refused")) {
                                   context.fail("FakeAuthenticator failed to connect to token endpoint on port " + port +
