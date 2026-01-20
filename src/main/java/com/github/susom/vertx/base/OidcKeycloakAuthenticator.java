@@ -43,6 +43,7 @@ import io.vertx.core.http.Cookie;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.HttpClientOptions;
 import io.vertx.core.http.HttpMethod;
+import io.vertx.core.http.RequestOptions;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.auth.jwt.JWTAuth;
 import io.vertx.ext.web.Router;
@@ -387,7 +388,14 @@ public class OidcKeycloakAuthenticator implements Security {
       enc.addParam("scope", scope);
 
       Metric metric = new Metric(log.isDebugEnabled());
-      httpClient.request(HttpMethod.POST, tokenUrl)
+
+      // In Vert.x 4, HttpClient.request(method, url) doesn't properly parse ports from URLs
+      // so we need to use RequestOptions with setAbsoluteURI
+      RequestOptions requestOptions = new RequestOptions()
+          .setMethod(HttpMethod.POST)
+          .setAbsoluteURI(tokenUrl);
+
+      httpClient.request(requestOptions)
         .compose(req -> {
           req.putHeader("content-type", "application/x-www-form-urlencoded")
              .putHeader("X-REQUEST-ID", MDC.get("requestId"));
