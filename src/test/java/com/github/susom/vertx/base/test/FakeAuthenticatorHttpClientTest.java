@@ -146,17 +146,18 @@ public class FakeAuthenticatorHttpClientTest {
                                 log.info("Callback response body: {}", body.toString());
 
                                 // The test passes if we get a response (even if it's an error)
-                                // without a connection refused error. The connection to the
-                                // token endpoint on the non-standard port should work.
-                                if (response2.statusCode() == 500 &&
-                                    body.toString().contains("Connection refused")) {
-                                  context.fail("FakeAuthenticator failed to connect to token endpoint on port " + port +
-                                      ". The HttpClient is not properly parsing the port from the tokenUrl.");
+                                // as long as the server does not return a 5xx error. A 5xx
+                                // status indicates the token endpoint could not be reached
+                                // or processed correctly (including potential port issues).
+                                if (response2.statusCode() >= 500 && response2.statusCode() < 600) {
+                                  context.fail("FakeAuthenticator failed while calling token endpoint on port " + port +
+                                      ". The HttpClient may not be properly parsing the port from the tokenUrl; " +
+                                      "status=" + response2.statusCode());
                                 } else if (response2.statusCode() == 302 || response2.statusCode() == 200) {
                                   log.info("Test passed: Token endpoint was successfully reached");
                                   async.complete();
                                 } else {
-                                  // Some other error, but not a port issue
+                                  // Some other non-5xx status code, but not a clear port issue
                                   log.info("Got response code {} which indicates the port was reached",
                                       response2.statusCode());
                                   async.complete();
