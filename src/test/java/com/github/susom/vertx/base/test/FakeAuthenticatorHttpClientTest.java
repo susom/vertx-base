@@ -45,7 +45,6 @@ public class FakeAuthenticatorHttpClientTest {
   private static final Logger log = LoggerFactory.getLogger(FakeAuthenticatorHttpClientTest.class);
   private Vertx vertx;
   private HttpClient client;
-  private int port = 8899; // Non-standard port to test port handling
 
   @Before
   public void setUp(TestContext context) {
@@ -76,16 +75,17 @@ public class FakeAuthenticatorHttpClientTest {
     Router tokenServer = Router.router(vertx);
 
     tokenServer.post("/fake-authentication/token").handler(rc -> {
-      log.info("Token endpoint received request on port {}", port);
+      log.info("Token endpoint received request");
       rc.response()
           .putHeader("content-type", "application/json")
           .end("{\"sub\":\"testuser\",\"name\":\"Test User\",\"authority\":[\"test:read\"]}");
     });
 
-    // Start the token server on the non-standard port
+    // Start the token server on a dynamically assigned port
     vertx.createHttpServer()
         .requestHandler(tokenServer)
-        .listen(port, context.asyncAssertSuccess(server -> {
+        .listen(0, context.asyncAssertSuccess(server -> {
+          int port = server.actualPort();
           log.info("Token server started on port {}", port);
 
           // Configure FakeAuthenticator to use our non-standard port
@@ -115,11 +115,11 @@ public class FakeAuthenticatorHttpClientTest {
               rc.response().end("Protected resource");
             });
 
-            // Start the application server on a different port
-            int appPort = port + 1;
+            // Start the application server on a different port (also dynamic)
             vertx.createHttpServer()
                 .requestHandler(appRouter)
-                .listen(appPort, context.asyncAssertSuccess(appServer -> {
+                .listen(0, context.asyncAssertSuccess(appServer -> {
+                  int appPort = appServer.actualPort();
                   log.info("App server started on port {}", appPort);
 
                   // Simulate the OAuth callback flow
@@ -199,7 +199,8 @@ public class FakeAuthenticatorHttpClientTest {
 
     vertx.createHttpServer()
         .requestHandler(router)
-        .listen(port, context.asyncAssertSuccess(server -> {
+        .listen(0, context.asyncAssertSuccess(server -> {
+          int port = server.actualPort();
           log.info("Test server started on port {}", port);
 
           // This is the FIX: Parse the URL and use RequestOptions with explicit host and port
