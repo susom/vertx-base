@@ -28,12 +28,7 @@ import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import java.io.Closeable;
 import java.io.PrintStream;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.security.AccessControlException;
 import java.security.NoSuchAlgorithmException;
-import java.security.Permission;
-import java.security.Permissions;
 import java.security.SecureRandom;
 import java.util.Map;
 import java.util.function.Function;
@@ -244,42 +239,6 @@ public class VertxBase {
       workDir = System.getProperty("user.dir");
     }
     return workDir;
-  }
-
-  /**
-   * Initialize the Java security manager. This will set permissions as needed
-   * for basic Vert.x functionality to work, and you should pass in any additional
-   * permissions the application code will need. Java system classes will receive
-   * all permissions, and everything else will default to no permissions.
-   */
-  public static void startSecurityManager(Permission... appPermissions) throws Exception {
-    setSecurityPolicy(appPermissions);
-    enableSecurityManager();
-  }
-
-  public static void setSecurityPolicy(Permission... appPermissions) throws Exception {
-    new BasePolicy() {
-      @Override
-      protected void addAppPermissions(Permissions appPerms) {
-        for (Permission p : appPermissions) {
-          if (p != null) {
-            appPerms.add(p);
-          }
-        }
-      }
-    }.install();
-  }
-
-  public static void enableSecurityManager() {
-    System.setSecurityManager(new SecurityManager());
-    try {
-      // Make sure the SecurityManager is doing something useful
-      Files.exists(Paths.get(".."));
-      log.error("Looks like the security sandbox is not working!");
-    } catch (AccessControlException unused) {
-      // Good, it's working
-      log.info("Started the security manager");
-    }
   }
 
   public static Router rootRouter(Vertx vertx, String defaultContext) {
