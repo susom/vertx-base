@@ -19,6 +19,7 @@ import com.github.susom.database.ConfigMissingException;
 import com.github.susom.database.Metric;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Context;
+import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
@@ -36,6 +37,7 @@ import java.security.Permission;
 import java.security.Permissions;
 import java.security.SecureRandom;
 import java.util.Map;
+import java.util.concurrent.Callable;
 import java.util.function.Function;
 import javax.annotation.Nonnull;
 import org.apache.commons.lang3.exception.ExceptionUtils;
@@ -63,10 +65,10 @@ public class VertxBase {
    * on the thread that calls it.
    */
   public static <T> Handler<T> mdc(final Handler<T> handler) {
-    final Map mdc = MDC.getCopyOfContextMap();
+    final Map<String, String> mdc = MDC.getCopyOfContextMap();
 
     return t -> {
-      Map restore = MDC.getCopyOfContextMap();
+      Map<String, String> restore = MDC.getCopyOfContextMap();
       try {
         if (mdc == null) {
           MDC.clear();
@@ -74,6 +76,35 @@ public class VertxBase {
           MDC.setContextMap(mdc);
         }
         handler.handle(t);
+      } finally {
+        if (restore == null) {
+          MDC.clear();
+        } else {
+          MDC.setContextMap(restore);
+        }
+      }
+    };
+  }
+
+  /**
+   * Wrap a Callable in a way that will preserve the SLF4J MDC context.
+   * The context from the current thread at the time of this method call
+   * will be cached and restored within the wrapper at the time the
+   * callable is invoked. This version delegates the callable directly
+   * on the thread that calls it.
+   */
+  public static <T> Callable<T> mdc(final Callable<T> callable) {
+    final Map<String, String> mdc = MDC.getCopyOfContextMap();
+
+    return () ->{
+      Map<String, String> restore = MDC.getCopyOfContextMap();
+      try {
+        if (mdc == null) {
+          MDC.clear();
+        } else {
+          MDC.setContextMap(mdc);
+        }
+        return callable.call();
       } finally {
         if (restore == null) {
           MDC.clear();
@@ -94,11 +125,11 @@ public class VertxBase {
    * event loop.
    */
   public static <T> Handler<T> mdcEventLoop(final Handler<T> handler) {
-    final Map mdc = MDC.getCopyOfContextMap();
+    final Map<String, String> mdc = MDC.getCopyOfContextMap();
     final Context context = Vertx.currentContext();
 
     return t -> context.runOnContext((v) -> {
-      Map restore = MDC.getCopyOfContextMap();
+      Map<String, String> restore = MDC.getCopyOfContextMap();
       try {
         if (mdc == null) {
           MDC.clear();
@@ -119,6 +150,8 @@ public class VertxBase {
   /**
    * Equivalent to {@link Vertx#executeBlocking(Handler, Handler)},
    * but preserves the {@link MDC} correctly.
+   *
+   * @deprecated this is removed in Vert.x 5.x, use futures instead
    */
   public static <T> void executeBlocking(Vertx vertx, Handler<Promise<T>> promiseHandler, Handler<AsyncResult<T>> handler) {
     executeBlocking(vertx, promiseHandler, true, handler);
@@ -127,10 +160,68 @@ public class VertxBase {
   /**
    * Equivalent to {@link Vertx#executeBlocking(Handler, boolean, Handler)},
    * but preserves the {@link MDC} correctly.
+   *
+   * @deprecated this is removed in Vert.x 5.x, use futures instead
    */
   public static <T> void executeBlocking(Vertx vertx, Handler<Promise<T>> promiseHandler, boolean ordered,
                                          Handler<AsyncResult<T>> handler) {
     vertx.getOrCreateContext().executeBlocking(mdc(promiseHandler), ordered, mdcEventLoop(handler));
+  }
+
+  /**
+   * Execute blocking code on a worker thread using the current Vert.x context,
+   * preserving the {@link MDC} correctly. Equivalent to calling
+   * {@link #executeBlocking(Callable, boolean)} with {@code ordered=true}.
+   *
+   * @param blockingCodeHandler the blocking code to execute
+   * @return a Future that will be completed with the result of the callable
+   */
+  public static <T> Future<T> executeBlocking(Callable<T> blockingCodeHandler) {
+    return executeBlocking(blockingCodeHandler, true);
+  }
+
+  /**
+   * Execute blocking code on a worker thread using the current Vert.x context,
+   * preserving the {@link MDC} correctly.
+   *
+   * @param blockingCodeHandler the blocking code to execute
+   * @param ordered if {@code true}, blocking executions for this context are ordered,
+   *                meaning the next one will not start until the previous one has completed
+   * @return a Future that will be completed with the result of the callable
+   */
+  public static <T> Future<T> executeBlocking(Callable<T> blockingCodeHandler, boolean ordered) {
+    return Vertx.currentContext().executeBlocking(mdc(blockingCodeHandler), ordered);
+  }
+
+  /**
+   * Execute blocking code on a worker thread using the current Vert.x context,
+   * preserving the {@link MDC} correctly. The supplied handler will be called
+   * on the event loop with the result when the blocking code completes.
+   *
+   * @param blockingCodeHandler the blocking code to execute
+   * @param ordered if {@code true}, blocking executions for this context are ordered,
+   *                meaning the next one will not start until the previous one has completed
+   * @param handler called on the event loop when the blocking code completes; may be {@code null}
+   * @return a Future that will be completed with the result of the callable
+   */
+  public static <T> Future<T> executeBlocking(Callable<T> blockingCodeHandler, boolean ordered, Handler<AsyncResult<T>> handler) {
+    Future<T> future = executeBlocking(mdc(blockingCodeHandler), ordered);
+    if (handler != null) {
+      future.onComplete(handler);
+    }
+    return future;
+  }
+
+  /**
+   * Asynchronously create and seed a {@link SecureRandom} instance on a worker
+   * thread, returning a Future that completes with the result. This is a
+   * non-blocking alternative to {@link #createSecureRandom(Vertx)}.
+   *
+   * @param vertx a periodic re-seeding timer will be registered with this vertx instance
+   * @return a Future that completes with a seeded {@link SecureRandom}
+   */
+  public static Future<SecureRandom> secureRandom(Vertx vertx) {
+    return executeBlocking(() -> createSecureRandom(vertx));
   }
 
   /**
@@ -282,6 +373,16 @@ public class VertxBase {
     }
   }
 
+  /**
+   * Create a root {@link Router} that clears the MDC on every incoming request.
+   * If {@code defaultContext} is non-null, a redirect from {@code "/"} to that
+   * context path is added automatically.
+   *
+   * @param vertx          the Vert.x instance used to create the router
+   * @param defaultContext the path to redirect {@code "/"} to, or {@code null}
+   *                       to skip the redirect
+   * @return a configured root router
+   */
   public static Router rootRouter(Vertx vertx, String defaultContext) {
     Router root = Router.router(vertx);
     root.route().handler(rc -> {
@@ -334,6 +435,15 @@ public class VertxBase {
     }));
   }
 
+  /**
+   * Returns a {@link Handler} that, when called with an {@link AsyncResult},
+   * writes the resulting {@link JsonObject} as a compact JSON response with
+   * {@code content-type: application/json}. If the result failed or is
+   * {@code null}, delegates to {@link #jsonApiFail(RoutingContext, Throwable)}.
+   *
+   * @param rc the routing context for the current request
+   * @return a handler that sends the JSON result or an error response
+   */
   public static Handler<AsyncResult<JsonObject>> sendJson(RoutingContext rc) {
     return r -> {
       if (r.succeeded() && r.result() != null) {
@@ -344,6 +454,15 @@ public class VertxBase {
     };
   }
 
+  /**
+   * Returns a {@link Handler} that, when called with an {@link AsyncResult},
+   * writes the resulting {@link JsonObject} as a pretty-printed JSON response
+   * with {@code content-type: application/json}. If the result failed or is
+   * {@code null}, delegates to {@link #jsonApiFail(RoutingContext, Throwable)}.
+   *
+   * @param rc the routing context for the current request
+   * @return a handler that sends the pretty-printed JSON result or an error response
+   */
   public static Handler<AsyncResult<JsonObject>> sendJsonPretty(RoutingContext rc) {
     return r -> {
       if (r.succeeded() && r.result() != null) {
@@ -354,10 +473,30 @@ public class VertxBase {
     };
   }
 
+  /**
+   * Send an appropriate JSON error response based on the failure stored in the
+   * routing context (i.e. {@link RoutingContext#failure()}). Delegates to
+   * {@link #jsonApiFail(RoutingContext, Throwable)}.
+   *
+   * @param rc the routing context whose failure will be used to determine the response
+   */
   public static void jsonApiFail(RoutingContext rc) {
     jsonApiFail(rc, rc.failure());
   }
 
+  /**
+   * Send an appropriate JSON error response based on the supplied throwable.
+   * Maps well-known exception types to HTTP status codes:
+   * <ul>
+   *   <li>{@link BadRequestException} → 400</li>
+   *   <li>{@link AuthenticationException} → 401</li>
+   *   <li>{@link AuthorizationException} → 403</li>
+   *   <li>anything else → the status code from the routing context (default 500)</li>
+   * </ul>
+   *
+   * @param rc the routing context for the current request
+   * @param t  the throwable describing the error; may be {@code null}
+   */
   public static void jsonApiFail(RoutingContext rc, Throwable t) {
     HttpServerResponse response = rc.response();
 
@@ -391,6 +530,14 @@ public class VertxBase {
     }
   }
 
+  /**
+   * Returns {@code true} if {@code top} itself, or any exception in its cause
+   * chain, is an instance of {@code type}.
+   *
+   * @param top  the throwable to inspect; may be {@code null}
+   * @param type the exception type to look for
+   * @return {@code true} if the exception or any of its causes is assignable to {@code type}
+   */
   public static boolean isOrCausedBy(Throwable top, Class<? extends Throwable> type) {
     for (Throwable t : ExceptionUtils.getThrowables(top)) {
       if (type.isAssignableFrom(t.getClass())) {
@@ -493,6 +640,21 @@ public class VertxBase {
     return root + context.substring(1);
   }
 
+  /**
+   * <p>This calls {@link #absoluteRoot(Function)} and then appends the normalised
+   * path of the current request. For example, a request to {@code /foo/bar} might
+   * return:</p>
+   *
+   * <code>
+   *   https://example.com/foo/bar
+   * </code>
+   *
+   * @param keyToValueConfig configuration containing values for public.url or public.proto,
+   *                         public.host, and public.port
+   * @param rc the context handling a particular request (used to determine the path)
+   * @return the full public URL including the request path, with no trailing slash
+   *         unless the path itself ends with one
+   */
   public static String absolutePath(Function<String, String> keyToValueConfig, RoutingContext rc) {
     String root = absoluteRoot(keyToValueConfig);
     String context = rc.normalisedPath();
