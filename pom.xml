@@ -30,18 +30,6 @@
       <optional>true</optional>
     </dependency>
     <dependency>
-      <groupId>org.springframework</groupId>
-      <artifactId>spring-core</artifactId>
-      <version>6.2.11</version>
-      <optional>true</optional>
-      <exclusions>
-        <exclusion>
-          <groupId>commons-logging</groupId>
-          <artifactId>commons-logging</artifactId>
-        </exclusion>
-      </exclusions>
-    </dependency>
-    <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>jcl-over-slf4j</artifactId>
       <version>2.0.17</version>
@@ -227,14 +215,9 @@
                 <includes>
                   <include>com.github.susom:vertx-base</include>
                   <include>org.apache.commons:commons-lang3</include>
-                  <include>org.springframework:spring-core</include>
                 </includes>
               </artifactSet>
               <relocations>
-                <relocation>
-                  <pattern>org.springframework</pattern>
-                  <shadedPattern>com.github.susom.vertx.base.shaded.org.springframework</shadedPattern>
-                </relocation>
                 <relocation>
                   <pattern>org.apache.commons.lang3</pattern>
                   <shadedPattern>com.github.susom.vertx.base.shaded.org.apache.commons.lang3</shadedPattern>

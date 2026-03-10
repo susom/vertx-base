@@ -21,20 +21,28 @@ import io.vertx.core.http.HttpServerRequest;
 import io.vertx.core.impl.VertxInternal;
 import io.vertx.ext.web.RoutingContext;
 import java.io.File;
+import java.io.IOException;
+import java.net.URL;
+import java.nio.file.FileVisitResult;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.Enumeration;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
 import javax.annotation.Nonnull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.core.io.ClassPathResource;
-import org.springframework.core.io.FileSystemResource;
-import org.springframework.core.io.Resource;
-import org.springframework.core.io.UrlResource;
-import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 
 import static io.netty.handler.codec.http.HttpResponseStatus.NOT_FOUND;
 
@@ -93,71 +101,93 @@ public class StrictResourceHandler implements Handler<RoutingContext> {
     }
 
     try {
-      ClassLoader cl = Thread.currentThread().getContextClassLoader();
-      PathMatchingResourcePatternResolver resolver = new PathMatchingResourcePatternResolver(cl) {};
-      // We want to use classpath*: because that searches over the entire classpath
-      // rather than allowing one directory to mask a later one
-      Resource[] resources = resolver.getResources("classpath*:" + dir + pattern);
-      if (resources != null) {
-        for (Resource resource : resources) {
-          if (resource.isReadable()) {
-            if (ClassPathResource.class.isAssignableFrom(resource.getClass())) {
-              String resourcePath = ((ClassPathResource) resource).getPath();
-              if (resourcePath.endsWith("/")) {
-                continue;
-              }
-              String servePath = prefix + resourcePath.substring(resourcePath.indexOf(dir) + dir.length());
-              if (pathToResource.containsKey(servePath)) {
-                log.trace("Skipping duplicate classpath resource {} ({})", servePath, resourcePath);
-                continue;
-              }
-              // This copies the file into the .vertx cache directory to be served via sendFile()
-              File file = vertx.resolveFile(resourcePath);
-              log.trace("Adding classpath resource {} ({})", servePath, resourcePath);
-              pathToResource.put(servePath, file);
-            } else if (resource instanceof FileSystemResource) {
-              File file = ((FileSystemResource) resource).getFile();
-              if (file.isDirectory()) {
-                continue;
-              }
-              String resourcePath = file.getPath();
-              // This isn't quite correct because it assumes the absolute path does
-              // not contain dir, but I haven't figured out how to know the base yet
-              String servePath = prefix + resourcePath.substring(resourcePath.indexOf("/" + dir) + 1).substring(dir.length());
-              if (pathToResource.containsKey(servePath)) {
-                log.trace("Skipping duplicate file resource {} ({})", servePath, resourcePath);
-                continue;
-              }
-              log.trace("Adding file resource {} ({})", servePath, resourcePath);
-              pathToResource.put(servePath, file);
-            } else if (resource instanceof UrlResource) {
-              String fullPath = resource.getURL().getPath();
-              if (fullPath.endsWith("/")) {
-                continue;
-              }
-              String resourcePath = fullPath.substring(fullPath.indexOf(".jar!/") + 6);
-              String servePath = prefix + resourcePath.substring(resourcePath.indexOf(dir) + dir.length());
-              if (pathToResource.containsKey(servePath)) {
-                log.trace("Skipping duplicate classpath url resource {} ({})", servePath, resourcePath);
-                continue;
-              }
-              // This copies the file into the .vertx cache directory to be served via sendFile()
-              File file = vertx.resolveFile(resourcePath);
-              log.trace("Adding classpath url resource {} ({})", servePath, resourcePath);
-              pathToResource.put(servePath, file);
-            } else {
-              log.warn("Skipping resource because it is an unknown class ({}): {}", resource.getClass(), resource);
-            }
-          } else {
-            log.trace("Skipping resource because it is not readable: {}", resource);
-          }
+      List<String> resourcePaths = findClasspathResources(dir, pattern);
+      for (String resourcePath : resourcePaths) {
+        String relativePath = resourcePath.substring(resourcePath.indexOf(dir) + dir.length());
+        String servePath = prefix + relativePath;
+        if (pathToResource.containsKey(servePath)) {
+          log.trace("Skipping duplicate classpath resource {} ({})", servePath, resourcePath);
+          continue;
         }
+        // This copies the file into the .vertx cache directory to be served via sendFile()
+        File file = vertx.resolveFile(resourcePath);
+        log.trace("Adding classpath resource {} ({})", servePath, resourcePath);
+        pathToResource.put(servePath, file);
       }
     } catch (Exception e) {
       throw new RuntimeException("Could not locate File for resource dir: " + dir, e);
     }
 
     return this;
+  }
+
+  /**
+   * Scans the entire classpath for resources under {@code dir} whose path relative to
+   * {@code dir} matches the Ant-style {@code pattern}.  Returns the resource paths
+   * (relative to the classpath root) of every matching, non-directory entry found.
+   *
+   * <p>This method searches both exploded-directory classpath entries and JAR files,
+   * mirroring the {@code classpath*:} prefix behaviour of Spring's
+   * {@code PathMatchingResourcePatternResolver}.
+   */
+  private List<String> findClasspathResources(String dir, String pattern) throws IOException {
+    ClassLoader cl = Thread.currentThread().getContextClassLoader();
+    List<String> results = new ArrayList<>();
+
+    // Enumerate every classpath root that contains the target directory
+    Enumeration<URL> dirUrls = cl.getResources(dir.endsWith("/") ? dir.substring(0, dir.length() - 1) : dir);
+    while (dirUrls.hasMoreElements()) {
+      URL url = dirUrls.nextElement();
+      String protocol = url.getProtocol();
+
+      if ("file".equals(protocol)) {
+        // Exploded directory on the filesystem
+        Path base;
+        try {
+          base = Paths.get(url.toURI());
+        } catch (java.net.URISyntaxException e) {
+          throw new IOException("Invalid URI for classpath URL: " + url, e);
+        }
+        if (!Files.isDirectory(base)) {
+          continue;
+        }
+        Files.walkFileTree(base, new SimpleFileVisitor<Path>() {
+          @Override
+          public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
+            String relative = base.relativize(file).toString().replace(File.separatorChar, '/');
+            if (AntPathMatcher.match(pattern, relative)) {
+              results.add(dir + relative);
+            }
+            return FileVisitResult.CONTINUE;
+          }
+        });
+      } else if ("jar".equals(protocol)) {
+        // Resource inside a JAR: jar:file:/path/to/foo.jar!/some/dir
+        String jarPath = url.getPath(); // e.g. file:/path/to/foo.jar!/some/dir
+        int separatorIdx = jarPath.indexOf("!/");
+        if (separatorIdx == -1) {
+          continue;
+        }
+        String jarFilePath = jarPath.substring("file:".length(), separatorIdx);
+        try (JarFile jarFile = new JarFile(jarFilePath)) {
+          String dirPrefix = dir.endsWith("/") ? dir : dir + "/";
+          Enumeration<JarEntry> entries = jarFile.entries();
+          while (entries.hasMoreElements()) {
+            JarEntry entry = entries.nextElement();
+            String name = entry.getName();
+            if (entry.isDirectory() || !name.startsWith(dirPrefix)) {
+              continue;
+            }
+            String relative = name.substring(dirPrefix.length());
+            if (AntPathMatcher.match(pattern, relative)) {
+              results.add(name);
+            }
+          }
+        }
+      }
+    }
+
+    return results;
   }
 
   /**
