@@ -73,14 +73,6 @@
       <version>1.43.0</version>
       <exclusions>
         <exclusion>
-          <groupId>io.opencensus</groupId>
-          <artifactId>opencensus-api</artifactId>
-        </exclusion>
-        <exclusion>
-          <groupId>io.opencensus</groupId>
-          <artifactId>opencensus-contrib-http-util</artifactId>
-        </exclusion>
-        <exclusion>
           <groupId>com.google.code.findbugs</groupId>
           <artifactId>jsr305</artifactId>
         </exclusion>
