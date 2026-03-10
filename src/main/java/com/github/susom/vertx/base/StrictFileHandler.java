@@ -37,7 +37,6 @@ import java.util.Map;
 import javax.annotation.Nonnull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.util.AntPathMatcher;
 
 import static io.netty.handler.codec.http.HttpResponseStatus.NOT_FOUND;
 
@@ -89,12 +88,10 @@ public class StrictFileHandler implements Handler<RoutingContext> {
 
     try {
       Files.walkFileTree(Paths.get(finalDir), new SimpleFileVisitor<Path>() {
-        AntPathMatcher matcher = new AntPathMatcher();
-
         @Override
         public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
           String resourcePath = file.toString();
-          if (matcher.match(pattern, resourcePath)) {
+          if (AntPathMatcher.match(pattern, resourcePath)) {
             // This isn't quite correct because it assumes the absolute path does
             // not contain dir, but I haven't figured out how to know the base yet
             String servePath = finalPrefix + resourcePath.substring(
