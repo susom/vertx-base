@@ -216,7 +216,7 @@ public class VertxBase {
    * @return a Future that completes with a seeded {@link SecureRandom}
    */
   public static Future<SecureRandom> secureRandom(Vertx vertx) {
-    return executeBlocking(() -> createSecureRandom(vertx));
+    return executeBlocking(() -> createSecureRandom(vertx), false);
   }
 
   /**
