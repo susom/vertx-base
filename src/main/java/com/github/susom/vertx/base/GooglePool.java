@@ -54,7 +54,7 @@ public class GooglePool {
     // If we don't provide a pool name it will automatically generate one, but
     // the way it does that requires PropertyPermission("*", "read,write") and
     // will fail if the security sandbox is enabled
-    hc.setPoolName(config.getString("database.pool.name", "GooglePool-" + poolNameCounter.getAndAdd(1)));
+    hc.setPoolName(config.getString("database.pool.name", "GooglePool-" + poolNameCounter.getAndIncrement()));
     hc.setJdbcUrl(url);
     String driverClassName = config.getString("database.driver.class", Flavor.driverForJdbcUrl(url));
     hc.setDriverClassName(driverClassName);
