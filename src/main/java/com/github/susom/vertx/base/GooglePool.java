@@ -101,7 +101,8 @@ public class GooglePool {
       flavor = Flavor.fromJdbcUrl(url);
     }
 
-    log.debug("Created '" + flavor + "' " + (useIamAuth ? "IAM" : "") + " connection pool of size " + poolSize + " using driver " + driverClassName);
+    String iamPart = useIamAuth ? " IAM" : "";
+    log.debug("Created '{}'{} connection pool of size {} using driver {}", flavor, iamPart, poolSize, driverClassName);
 
     return new Pool(ds, poolSize, flavor, ds);
   }
