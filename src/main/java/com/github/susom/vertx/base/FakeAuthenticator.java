@@ -620,29 +620,6 @@ public class FakeAuthenticator implements Security {
 
         Cookie sessionCookie = rc.getCookie("session_token");
         if (sessionCookie != null && sessionCookie.getValue() != null) {
-          log.debug("Found a session cookie but authentication failed; expiring possible legacy paths");
-          String path = "";
-          for (String pathComponent : rc.request().path().split("/")) {
-            if (!pathComponent.isEmpty()) {
-              path += pathComponent;
-              rc.response().headers().add(SET_COOKIE, Cookie.cookie("session_token", "").setPath(path).setMaxAge(0).encode());
-            }
-            path += "/";
-            rc.response().headers().add(SET_COOKIE, Cookie.cookie("session_token", "").setPath(path).setMaxAge(0).encode());
-          }
-          MetricsHandler.checkpoint(rc, "authFail");
-          if (mandatory) {
-            if (redirecter == null) {
-              rc.response().setStatusCode(401).end("Session cookie incorrect");
-            } else {
-              redirecter.handle(rc);
-            }
-          } else {
-            rc.next();
-          }
-          return;
-        }
-
           Session session = sessions.get(sessionCookie.getValue());
           // TODO handle case where session is not in our cache and we need to get it from the coordinator
           if (session != null && session.revoked == null && session.expires.isAfter(Instant.now())) {
@@ -653,7 +630,16 @@ public class FakeAuthenticator implements Security {
             rc.next();
           } else {
             MetricsHandler.checkpoint(rc, "authFail");
-            rc.response().headers().add(SET_COOKIE, sessionCookie.setValue("").setMaxAge(0).encode());
+            log.debug("Found a session cookie but authentication failed; expiring possible legacy paths");
+            String path = "";
+            for (String pathComponent : rc.request().path().split("/")) {
+              if (!pathComponent.isEmpty()) {
+                path += pathComponent;
+                rc.response().headers().add(SET_COOKIE, Cookie.cookie("session_token", "").setPath(path).setMaxAge(0).encode());
+              }
+              path += "/";
+              rc.response().headers().add(SET_COOKIE, Cookie.cookie("session_token", "").setPath(path).setMaxAge(0).encode());
+            }
             if (mandatory) {
               if (log.isTraceEnabled()) {
                 if (session == null) {
