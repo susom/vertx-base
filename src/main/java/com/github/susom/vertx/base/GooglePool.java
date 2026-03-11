@@ -61,25 +61,26 @@ public class GooglePool {
     if (useIamAuth) {
       hc.addDataSourceProperty("ssl", "true");
       hc.addDataSourceProperty("sslmode", "require");
-      hc.setCredentialsProvider(() -> {
-        GoogleCredentials credentials;
 
-        try {
-          credentials = GoogleCredentials.getApplicationDefault();
-        } catch (IOException err) {
-          throw new RuntimeException("Unable to obtain Google credential", err);
-        }
-
+      // Create and scope the application default credentials once, then reuse them
+      final GoogleCredentials scopedCredentials;
+      try {
+        GoogleCredentials credentials = GoogleCredentials.getApplicationDefault();
         // Narrow the authority to what we need
-        GoogleCredentials scoped = credentials.createScoped("https://www.googleapis.com/auth/sqlservice.login");
+        scopedCredentials = credentials.createScoped("https://www.googleapis.com/auth/sqlservice.login");
+      } catch (IOException err) {
+        throw new RuntimeException("Unable to obtain Google credential", err);
+      }
 
+      hc.setCredentialsProvider(() -> {
         try {
-          scoped.refresh();
+          // Refresh only if the token is expired, to avoid unnecessary refreshes
+          scopedCredentials.refreshIfExpired();
         } catch (IOException e) {
           throw new RuntimeException("Error refreshing the scoped credential", e);
         }
 
-        return new Credentials(user, scoped.getAccessToken().getTokenValue());
+        return new Credentials(user, scopedCredentials.getAccessToken().getTokenValue());
       });
     } else {
       hc.setUsername(user);
