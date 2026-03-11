@@ -46,6 +46,9 @@ public class GooglePool {
     String password = config.getString("database.password");
 
     boolean useIamAuth = (user != null && user.contains("@")) || password == null || password.isEmpty() || password.equals("iam");
+    if (useIamAuth && (user == null || user.isBlank())) {
+      throw new DatabaseException("You must provide database.user when using IAM authentication (password is null, empty, or 'iam')");
+    }
 
     HikariConfig hc = new HikariConfig();
     // If we don't provide a pool name it will automatically generate one, but
