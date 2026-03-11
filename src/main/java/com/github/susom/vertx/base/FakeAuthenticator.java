@@ -158,7 +158,7 @@ public class FakeAuthenticator implements Security {
 
       rc.response().headers().add(SET_COOKIE, Cookie.cookie("state", state)
           .setHttpOnly(true)
-          .setPath(rc.mountPoint() + "/")
+          .setPath("/")
           .setSecure(redirectUri(rc).startsWith("https")).encode());
 
       String loginUrl = authUrl + params;
@@ -214,7 +214,7 @@ public class FakeAuthenticator implements Security {
 
       rc.response().headers().add(SET_COOKIE, Cookie.cookie("state", state)
           .setHttpOnly(true)
-          .setPath(rc.mountPoint() + "/")
+          .setPath("/")
           .setSecure(redirectUri(rc).startsWith("https")).encode());
 
       rc.response().putHeader("content-type", "text/html").end("<!DOCTYPE html><html><body>"
@@ -334,6 +334,15 @@ public class FakeAuthenticator implements Security {
           return;
         } else if (!state.getValue().equals(stateParam)) {
           log.debug("State from parameter does not match cookie (XSRF?)");
+          String path = "";
+          for (String pathComponent : rc.request().path().split("/")) {
+            if (!pathComponent.isEmpty()) {
+              path += pathComponent;
+              rc.response().headers().add(SET_COOKIE, Cookie.cookie("state", "").setPath(path).setMaxAge(0).encode());
+            }
+            path += "/";
+            rc.response().headers().add(SET_COOKIE, Cookie.cookie("state", "").setPath(path).setMaxAge(0).encode());
+          }
           rc.response().setStatusCode(403).end("The state parameter does not match the cookie");
           return;
         }
@@ -375,7 +384,9 @@ public class FakeAuthenticator implements Security {
               if (response.statusCode() == 200) {
                 JsonObject json = new JsonObject(body.toString());
 
-                log.warn("Response from token end point: " + json.encodePrettily()); // TODO remove
+                if (log.isTraceEnabled()) {
+                  log.warn("Response from token end point: " + json.encodePrettily());
+                }
 
                 String sessionToken = new TokenGenerator(secureRandom).create(64);
                 Session session = new Session();
@@ -391,15 +402,16 @@ public class FakeAuthenticator implements Security {
                 sessions.put(sessionToken, session);
 
                 Cookie sessionCookie = Cookie.cookie("session_token",
-                    sessionToken).setHttpOnly(true)
+                    sessionToken).setHttpOnly(true).setPath("/")
                     .setSecure(redirectUri(rc).startsWith("https"));
                 Cookie xsrfCookie = Cookie.cookie("XSRF-TOKEN",
-                    new TokenGenerator(secureRandom).create())
+                    new TokenGenerator(secureRandom).create()).setPath("/")
                     .setSecure(redirectUri(rc).startsWith("https"));
 
                 rc.response().headers()
                     .add(SET_COOKIE, sessionCookie.encode())
-                    .add(SET_COOKIE, xsrfCookie.encode());
+                    .add(SET_COOKIE, xsrfCookie.encode())
+                    .add(SET_COOKIE, Cookie.cookie("state", "").setPath("/").setMaxAge(0).encode());
                 rc.response().setStatusCode(302).putHeader("location", absoluteContext(config::getString, rc) + "/").end();
               } else {
                 log.error("Unexpected response connecting to " + tokenUrl + ": " + response.statusCode() + " "
@@ -455,7 +467,7 @@ public class FakeAuthenticator implements Security {
         params.addParam("state", state);
 
         rc.response().headers().add(SET_COOKIE, Cookie.cookie("state", state)
-            .setHttpOnly(true)
+            .setHttpOnly(true).setPath("/")
             .setSecure(redirectUri(rc).startsWith("https")).encode());
 
         rc.response().end(new JsonObject()
@@ -478,8 +490,8 @@ public class FakeAuthenticator implements Security {
       fromEnc.addParam("redirect_uri", VertxBase.absolutePath(config::getString, rc) + "?done=yes");
 
       rc.response().headers()
-          .add(SET_COOKIE, Cookie.cookie("session_token", "").setMaxAge(0).encode())
-          .add(SET_COOKIE, Cookie.cookie("XSRF-TOKEN", "").setMaxAge(0).encode())
+          .add(SET_COOKIE, Cookie.cookie("session_token", "").setPath("/").setMaxAge(0).encode())
+          .add(SET_COOKIE, Cookie.cookie("XSRF-TOKEN", "").setPath("/").setMaxAge(0).encode())
           .add("location", logoutUrl + fromEnc);
       rc.response().setStatusCode(302).end();
     };
@@ -587,6 +599,15 @@ public class FakeAuthenticator implements Security {
               return;
             } else if (!xsrf.getValue().equals(xsrfHeader)) {
               log.debug("XSRF header did not match");
+              String path = "";
+              for (String pathComponent : rc.request().path().split("/")) {
+                if (!pathComponent.isEmpty()) {
+                  path += pathComponent;
+                  rc.response().headers().add(SET_COOKIE, Cookie.cookie("XSRF-TOKEN", "").setPath(path).setMaxAge(0).encode());
+                }
+                path += "/";
+                rc.response().headers().add(SET_COOKIE, Cookie.cookie("XSRF-TOKEN", "").setPath(path).setMaxAge(0).encode());
+              }
               if (redirecter == null) {
                 rc.response().setStatusCode(403).end("The X-XSRF-TOKEN header value did not match the XSRF-TOKEN cookie");
               } else {
@@ -599,6 +620,30 @@ public class FakeAuthenticator implements Security {
 
         Cookie sessionCookie = rc.getCookie("session_token");
         if (sessionCookie != null && sessionCookie.getValue() != null) {
+          if (sessionCookie.getPath() != null && !"/".equals(sessionCookie.getPath())) {
+            log.debug("Found a session cookie with incorrect path {}", sessionCookie.getPath());
+            String path = "";
+            for (String pathComponent : rc.request().path().split("/")) {
+              if (!pathComponent.isEmpty()) {
+                path += pathComponent;
+                rc.response().headers().add(SET_COOKIE, Cookie.cookie("session_token", "").setPath(path).setMaxAge(0).encode());
+              }
+              path += "/";
+              rc.response().headers().add(SET_COOKIE, Cookie.cookie("session_token", "").setPath(path).setMaxAge(0).encode());
+            }
+            MetricsHandler.checkpoint(rc, "authFail");
+            if (mandatory) {
+              if (redirecter == null) {
+                rc.response().setStatusCode(401).end("Session cookie incorrect");
+              } else {
+                redirecter.handle(rc);
+              }
+            } else {
+              rc.next();
+            }
+            return;
+          }
+
           Session session = sessions.get(sessionCookie.getValue());
           // TODO handle case where session is not in our cache and we need to get it from the coordinator
           if (session != null && session.revoked == null && session.expires.isAfter(Instant.now())) {
