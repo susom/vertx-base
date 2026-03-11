@@ -69,7 +69,7 @@ public class GooglePool {
         // Narrow the authority to what we need
         scopedCredentials = credentials.createScoped("https://www.googleapis.com/auth/sqlservice.login");
       } catch (IOException err) {
-        throw new RuntimeException("Unable to obtain Google credential", err);
+        throw new DatabaseException("Unable to obtain Google credential", err);
       }
 
       hc.setCredentialsProvider(() -> {
@@ -77,7 +77,7 @@ public class GooglePool {
           // Refresh only if the token is expired, to avoid unnecessary refreshes
           scopedCredentials.refreshIfExpired();
         } catch (IOException e) {
-          throw new RuntimeException("Error refreshing the scoped credential", e);
+          throw new DatabaseException("Error refreshing the scoped credential", e);
         }
 
         return new Credentials(user, scopedCredentials.getAccessToken().getTokenValue());
