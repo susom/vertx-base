@@ -648,6 +648,11 @@ public class FakeAuthenticator implements Security {
                   log.trace("Session cookie is invalid: expires=" + session.expires + " revoked=" + session.revoked);
                 }
               }
+              path += "/";
+              rc.response().headers().add(SET_COOKIE, Cookie.cookie("session_token", "").setPath(path).setMaxAge(0).encode());
+            }
+            MetricsHandler.checkpoint(rc, "authFail");
+            if (mandatory) {
               if (redirecter == null) {
                 rc.response().setStatusCode(401).end("Session expired");
               } else {
