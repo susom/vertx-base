@@ -196,8 +196,7 @@ public class StrictFileHandler implements Handler<RoutingContext> {
 
       File file = pathToFile.get(path);
       if (file == null) {
-        // TODO trace rather than warning
-        log.warn("Path not found: " + path + " so skipping this handler");
+        log.trace("Path not found: {} so skipping this handler", path);
         rc.next();
         return;
       }
