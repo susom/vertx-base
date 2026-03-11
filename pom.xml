@@ -27,7 +27,6 @@
       <groupId>org.apache.commons</groupId>
       <artifactId>commons-lang3</artifactId>
       <version>3.18.0</version>
-      <optional>true</optional>
     </dependency>
     <dependency>
       <groupId>org.slf4j</groupId>
@@ -206,15 +205,8 @@
               <artifactSet>
                 <includes>
                   <include>com.github.susom:vertx-base</include>
-                  <include>org.apache.commons:commons-lang3</include>
                 </includes>
               </artifactSet>
-              <relocations>
-                <relocation>
-                  <pattern>org.apache.commons.lang3</pattern>
-                  <shadedPattern>com.github.susom.vertx.base.shaded.org.apache.commons.lang3</shadedPattern>
-                </relocation>
-              </relocations>
               <filters>
                 <filter>
                   <artifact>*:*</artifact>
