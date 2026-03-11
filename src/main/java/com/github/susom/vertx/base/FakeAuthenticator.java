@@ -385,7 +385,7 @@ public class FakeAuthenticator implements Security {
                 JsonObject json = new JsonObject(body.toString());
 
                 if (log.isTraceEnabled()) {
-                  log.warn("Response from token end point: " + json.encodePrettily());
+                  log.trace("Response from token end point: " + json.encodePrettily());
                 }
 
                 String sessionToken = new TokenGenerator(secureRandom).create(64);
