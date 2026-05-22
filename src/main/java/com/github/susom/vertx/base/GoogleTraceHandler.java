@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 The Board of Trustees of The Leland Stanford Junior University.
+ * Copyright 2026 The Board of Trustees of The Leland Stanford Junior University.
  * All Rights Reserved.
  *
  * See the NOTICE and LICENSE files distributed with this work for information
@@ -46,9 +46,7 @@ public class GoogleTraceHandler implements Handler<RoutingContext> {
   public void handle(RoutingContext ctx) {
     clearTraceContext();
     applyTraceContext(ctx.request().getHeader("X-Cloud-Trace-Context"), projectId);
-    ctx.response().endHandler(v -> {
-      clearTraceContext();
-    });
+    ctx.response().endHandler(v -> clearTraceContext());
     ctx.next();
   }
 
@@ -92,7 +90,7 @@ public class GoogleTraceHandler implements Handler<RoutingContext> {
     }
   }
 
-  static void clearTraceContext() {
+  private static void clearTraceContext() {
     MDC.remove(MDC_TRACE_KEY);
     MDC.remove(MDC_SPAN_KEY);
   }
