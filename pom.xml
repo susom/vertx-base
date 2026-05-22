@@ -12,7 +12,7 @@
   <url>https://github.com/susom/vertx-base</url>
 
   <properties>
-    <vertx.version>4.5.25</vertx.version>
+    <vertx.version>4.5.27</vertx.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
   </properties>
@@ -33,6 +33,14 @@
       <artifactId>jcl-over-slf4j</artifactId>
       <version>2.0.17</version>
       <optional>true</optional>
+    </dependency>
+    <dependency>
+      <!-- Compile-time dependency for GoogleStructuredLogging; users of this library opt in
+           by adding logback-classic themselves (provided = non-transitive). -->
+      <groupId>ch.qos.logback</groupId>
+      <artifactId>logback-classic</artifactId>
+      <version>1.5.32</version>
+      <scope>provided</scope>
     </dependency>
     <dependency>
       <groupId>io.vertx</groupId>
@@ -114,12 +122,6 @@
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
       <version>4.13.2</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-reload4j</artifactId>
-      <version>2.0.17</version>
       <scope>test</scope>
     </dependency>
     <dependency>
