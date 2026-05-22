@@ -1,3 +1,17 @@
+/*
+ * Copyright 2023 The Board of Trustees of The Leland Stanford Junior University.
+ * All Rights Reserved.
+ *
+ * See the NOTICE and LICENSE files distributed with this work for information
+ * regarding copyright ownership and licensing. You may not use this file except
+ * in compliance with a written license agreement with Stanford University.
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See your
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
 package com.github.susom.vertx.base;
 
 import ch.qos.logback.classic.Level;
@@ -23,10 +37,9 @@ import java.util.Map;
  *   <li>{@code logging.googleapis.com/labels/userId} – User ID (when present in MDC)</li>
  * </ul>
  *
- * <p>Enable structured logging by setting the environment variable
- * {@code LOGBACK_CONFIGURATION_FILE=logback-json.xml} when running the container.
- * The trace/span MDC keys are populated automatically by {@link GoogleTraceHandler}
- * from the {@code X-Cloud-Trace-Context} request header.
+ * <p>Enable structured logging by configuring your Logback appender to use this
+ * encoder class. The trace/span MDC keys are populated automatically by
+ * {@link GoogleTraceHandler} from the {@code X-Cloud-Trace-Context} request header.
  */
 public class GoogleStructuredLogging extends EncoderBase<ILoggingEvent> {
 

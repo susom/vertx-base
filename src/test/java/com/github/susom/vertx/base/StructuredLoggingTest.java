@@ -1,3 +1,17 @@
+/*
+ * Copyright 2023 The Board of Trustees of The Leland Stanford Junior University.
+ * All Rights Reserved.
+ *
+ * See the NOTICE and LICENSE files distributed with this work for information
+ * regarding copyright ownership and licensing. You may not use this file except
+ * in compliance with a written license agreement with Stanford University.
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See your
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
 package com.github.susom.vertx.base;
 
 import static org.junit.Assert.assertEquals;
@@ -240,10 +254,32 @@ public class StructuredLoggingTest {
     assertNull("span must not be set",  MDC.get(GoogleTraceHandler.MDC_SPAN_KEY));
   }
 
+  /** Empty trace ID is invalid and must clear any existing MDC values. */
+  @Test
+  public void testEmptyTraceIdClearsMdc() {
+    MDC.put(GoogleTraceHandler.MDC_TRACE_KEY, "stale-trace");
+    MDC.put(GoogleTraceHandler.MDC_SPAN_KEY, "stale-span");
+    GoogleTraceHandler.applyTraceContext("/span123", null);
+
+    assertNull("trace must not be set", MDC.get(GoogleTraceHandler.MDC_TRACE_KEY));
+    assertNull("span must not be set",  MDC.get(GoogleTraceHandler.MDC_SPAN_KEY));
+  }
+
   /** Header containing only a trace ID (no span, no flag). */
   @Test
   public void testTraceIdOnlyHeader() {
+    MDC.put(GoogleTraceHandler.MDC_SPAN_KEY, "stale-span");
     GoogleTraceHandler.applyTraceContext("abc123", null);
+
+    assertEquals("abc123", MDC.get(GoogleTraceHandler.MDC_TRACE_KEY));
+    assertNull("span must not be set", MDC.get(GoogleTraceHandler.MDC_SPAN_KEY));
+  }
+
+  /** Trace ID with only a trace flag is valid; span must remain unset. */
+  @Test
+  public void testTraceOnlyHeaderWithFlag() {
+    MDC.put(GoogleTraceHandler.MDC_SPAN_KEY, "stale-span");
+    GoogleTraceHandler.applyTraceContext("abc123;o=1", null);
 
     assertEquals("abc123", MDC.get(GoogleTraceHandler.MDC_TRACE_KEY));
     assertNull("span must not be set", MDC.get(GoogleTraceHandler.MDC_SPAN_KEY));
@@ -354,6 +390,21 @@ public class StructuredLoggingTest {
         .compose(req -> req.putHeader("X-Cloud-Trace-Context", "").send())
         .onComplete(ctx.asyncAssertSuccess(resp -> {
           ctx.assertEquals("", resp.getHeader("X-Trace-Value"));
+          ctx.assertEquals("", resp.getHeader("X-Span-Value"));
+          async.complete();
+        }));
+  }
+
+  /** Header with only trace and trace flag must set trace and keep span empty. */
+  @Test
+  public void testHandlerPopulatesMdcFromTraceOnlyHeaderWithFlag(TestContext ctx) {
+    Async async = ctx.async();
+    HttpClient client = vertx.createHttpClient(new HttpClientOptions());
+
+    client.request(HttpMethod.GET, port, "localhost", "/echo")
+        .compose(req -> req.putHeader("X-Cloud-Trace-Context", "traceonly;o=1").send())
+        .onComplete(ctx.asyncAssertSuccess(resp -> {
+          ctx.assertEquals("traceonly", resp.getHeader("X-Trace-Value"));
           ctx.assertEquals("", resp.getHeader("X-Span-Value"));
           async.complete();
         }));
